@@ -4,188 +4,157 @@ const NVIDIA_API_KEY = "nvapi-Hrhc9Payou82XIW7xctTdraFm2eY_r6GHmypzPg_MmAZS-6X2w
 
 export const searchInfluencers = async (query: string): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
   try {
-    let handlesToFetch: string[] = [];
+    let allHandles = new Set<string>();
 
-    // 1: Solicita ao Kimi pelo menos 10 nomes de influenciadores reais.
-    // Desta vez, fornecemos a ele a FERRAMENTA (tool) de buscar na web para que ele NÃO invente.
-    const handlesPrompt = `Aja como um recrutador/hunter de influenciadores brasileiros.
-O usuário procura: "${query}".
-
-SUA ÚNICA TAREFA: Liste exatamente 10 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores FAMOSOS e MUITO reais que existam perfeitamente nesta área. Se não tiver certeza de 10, liste menos (ex: 5).
-É EXTREMAMENTE IMPORTANTE que esses perfis existam de verdade na plataforma. Não invente nomes!
-
-VOCÊ DEVE USAR A FERRAMENTA 'search_web' PARA CONSULTAR A INTERNET E ENCONTRAR PERFIS REAIS ANTES DE RESPONDER.
-Consulte algo como: site:instagram.com "influenciador" OR "criador de conteúdo" ${query}
-
-IMPORTANTE: A sua resposta final ao usuário DEVE SER ESTRITAMENTE E UNICAMENTE UM ARRAY JSON PURO de strings.
-Exemplo: ["nomedeusuario1", "nomedeusuario2", "luvadepedreiro"]`;
-
-    // Define the tool available to the model
-    const tools = [
-      {
-        type: "function",
-        function: {
-          name: "search_web",
-          description: "Pesquisa na web usando DuckDuckGo para encontrar informações reais, URLs e handles do Instagram.",
-          parameters: {
-            type: "object",
-            properties: {
-              search_query: {
-                type: "string",
-                description: "A query de busca (ex: site:instagram.com tech)"
-              }
-            },
-            required: ["search_query"]
-          }
-        }
-      }
+    // 1. Scraping direto massivo (DuckDuckGo HTML Proxy) para achar handles reais do nicho.
+    // Usamos variadas formas de buscar para garantir dezenas de resultados no funil.
+    const searchQueries = [
+      `site:instagram.com ${query}`,
+      `site:instagram.com "influenciador" OR "criativo" ${query}`,
+      `site:instagram.com "criador de conteúdo" ${query}`,
+      `melhores influenciadores de ${query} instagram`,
+      `instagram perfis sobre ${query}`
     ];
 
-    let messages: any[] = [{ role: "user", content: handlesPrompt }];
-
-    // Primeira chamada: O modelo pode pedir para usar a ferramenta
-    const firstRes = await fetch("/api/nvidia/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${NVIDIA_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "moonshotai/kimi-k2.5",
-        messages: messages,
-        tools: tools,
-        max_tokens: 1024,
-        temperature: 0.1
-      })
-    });
-
-    if (!firstRes.ok) throw new Error(`Kimi Handles Error 1: ${firstRes.statusText}`);
-    const firstJson = await firstRes.json();
-    const responseMessage = firstJson.choices[0].message;
-
-    // Verifica se o modelo quer chamar a ferramenta
-    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-      messages.push(responseMessage); // Adiciona a assistente chamando a feramenta no histórico
-
-      for (const toolCall of responseMessage.tool_calls) {
-        if (toolCall.function.name === "search_web") {
-          const args = JSON.parse(toolCall.function.arguments);
-          const sq = encodeURIComponent(args.search_query);
-
-          // Executa a busca real na nossa proxy
-          let toolResultText = "Nenhum resultado encontrado.";
-          try {
-            const searchRes = await fetch(`/api/ddg/html/?q=${sq}`);
-            const htmlText = await searchRes.text();
-
-            // Extrair handles do HTML para economizar tokens
-            const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
-            const matches = [...htmlText.matchAll(instaRegex)];
-            const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer'];
-            const found = matches.map(m => m[1].toLowerCase()).filter(h => !ignoredHandles.includes(h) && h.length > 2);
-
-            toolResultText = `Encontrei estes perfis no Google/DuckDuckGo: ${Array.from(new Set(found)).join(", ")}`;
-          } catch (e) {
-            toolResultText = "Erro ao buscar na web.";
-          }
-
-          // Devolve a resposta da ferramenta pro modelo
-          messages.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
-            name: toolCall.function.name,
-            content: toolResultText
-          });
-        }
-      }
-
-      // Segunda chamada com os resultados da ferramenta
-      const secondRes = await fetch("/api/nvidia/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${NVIDIA_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "moonshotai/kimi-k2.5",
-          messages: messages,
-          max_tokens: 1024,
-          temperature: 0.1
-        })
-      });
-
-      if (secondRes.ok) {
-        const secondJson = await secondRes.json();
-        let finalAnswer = secondJson.choices[0].message.content || "[]";
-        finalAnswer = finalAnswer.replace(/```json/gi, '').replace(/```/g, '').trim();
-        try { handlesToFetch = JSON.parse(finalAnswer); } catch (e) { }
-      }
-    } else {
-      // Se o modelo resolveu responder direto sem a ferramenta
-      let textOutContext = responseMessage.content || "[]";
-      textOutContext = textOutContext.replace(/```json/gi, '').replace(/```/g, '').trim();
-      try { handlesToFetch = JSON.parse(textOutContext); } catch (e) { }
-    }
-
-    if (!Array.isArray(handlesToFetch) || handlesToFetch.length === 0) {
-      handlesToFetch = ["loohansb"]; // Fallback extremo
-    }
-
-    // 2: Para cada handle gerado, consulta a API real do Instagram LZ
-    const validProfiles: any[] = [];
-    const groundingUrls: string[] = [];
-
-    // Paraleliza as requisições, buscando até 20 opções para tentar achar as 10 que realmente funcionam.
-    const limitedHandles = handlesToFetch.slice(0, 20);
-    await Promise.all(limitedHandles.map(async (h) => {
+    // Executa as buscas em paralelo para acelerar ao máximo
+    await Promise.all(searchQueries.map(async (sq) => {
       try {
-        const cleanHandle = h.replace('@', '').trim();
-        const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${cleanHandle}`);
-        if (instaRes.ok) {
-          const profileData = await instaRes.json();
-          if (profileData && profileData.user_info && profileData.user_info.username) {
-            validProfiles.push(profileData);
-            groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
+        const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`);
+        if (!searchRes.ok) return;
+        const htmlText = await searchRes.text();
+
+        // Regex para capturar handles do Instagram
+        const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
+        const matches = [...htmlText.matchAll(instaRegex)];
+
+        // Excluir palavras reservadas comuns da URL do instagram
+        const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
+
+        matches.forEach(m => {
+          const h = m[1].toLowerCase().trim();
+          if (!ignoredHandles.includes(h) && h.length > 2) {
+            allHandles.add(h);
           }
-        }
-      } catch (err) {
-        // Ignorar handlers que não existem mais ou falharam na API (404/403)
+        });
+      } catch (e) {
+        console.warn(`Erro na busca DDG para: ${sq}`, e);
       }
     }));
 
+    let handlesList = Array.from(allHandles);
+
+    // Se a busca web falhou categoricamente, usamos Kimi como último recurso para sugerir no mínimo 30
+    if (handlesList.length < 10) {
+      console.log("Poucos resultados na web, invocando Kimi para expandir lista...");
+      const handlesPrompt = `O usuário procura: "${query}". Liste no MÍNIMO 40 nomes de usuário (handles) do Instagram de influenciadores FAMOSOS e REAIS desse nicho. Retorne ESTRITAMENTE um array JSON puro de strings. Ex: ["user1", "user2"]`;
+      try {
+        const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "moonshotai/kimi-k2.5",
+            messages: [{ role: "user", content: handlesPrompt }],
+            max_tokens: 2048,
+            temperature: 0.2
+          })
+        });
+        if (kimiRes.ok) {
+          const kimiJson = await kimiRes.json();
+          let text = kimiJson.choices?.[0]?.message?.content || "[]";
+          text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const kimiHandles = JSON.parse(text);
+          if (Array.isArray(kimiHandles)) {
+            kimiHandles.forEach(h => handlesList.push(h.replace('@', '').toLowerCase().trim()));
+          }
+        }
+      } catch (e) {
+        console.warn("Kimi falhou ao gerar handles extras.", e);
+      }
+    }
+
+    // Limpa duplicados e garante os fallbacks finais só pra não quebrar
+    handlesList = Array.from(new Set(handlesList));
+    if (handlesList.length === 0) {
+      handlesList = ["loohansb", "natanrabelo", "kibestudio", "tiagofonsecaoficial", "mayke.garbo", "rocketseat", "filipe_deschamps", "lucasmontano", "akitaonrails"];
+    }
+
+    // 2. Validar iterativamente na API oficial até termos 20 perfis ou esgotarmos a lista
+    const validProfiles: any[] = [];
+    const groundingUrls: string[] = [];
+    const TARGET_PROFILES = 20;
+    const CHUNK_SIZE = 12; // Testar 12 de cada vez para não tomar Rate Limit brusco e ser rápido
+
+    console.log(`Encontrados ${handlesList.length} possíveis handles. Validando até ${TARGET_PROFILES}...`);
+
+    for (let i = 0; i < handlesList.length; i += CHUNK_SIZE) {
+      if (validProfiles.length >= TARGET_PROFILES) break;
+
+      const chunk = handlesList.slice(i, i + CHUNK_SIZE);
+      await Promise.all(chunk.map(async (h) => {
+        // Se outro processo no Promise.all já preencheu a cota, abortamos o push
+        if (validProfiles.length >= TARGET_PROFILES) return;
+        try {
+          const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
+          if (instaRes.ok) {
+            const profileData = await instaRes.json();
+            if (profileData && profileData.user_info && profileData.user_info.username) {
+              // Verifica se já não inserimos um igual (devido ao paralelismo)
+              if (!validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
+                if (validProfiles.length < TARGET_PROFILES) {
+                  validProfiles.push(profileData);
+                  groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Ignorar handlers inválidos
+        }
+      }));
+    }
+
     if (validProfiles.length === 0) {
-      console.warn("Nenhum perfil real ou aberto foi encontrado usando nossa API de extração para estes termos.");
+      console.warn("Nenhum perfil válido ou aberto encontrado na API.");
       return { influencers: [], groundingUrls: [] };
     }
 
-    // Limitar para enviar apenas os 10 primeiros válidos encontrados para a IA final
-    const selectedProfiles = validProfiles.slice(0, 10);
+    // 3. IA analisa os perfis válidos OBTIDOS REAIS. 
+    // Para nã estourar o limite de Contexto da IA (e economizar dinheiro), simplificamos o objeto enviado.
+    const simplifiedProfilesForLLM = validProfiles.map(p => ({
+      username: p.user_info.username,
+      category: p.user_info.category,
+      biography: p.user_info.biography,
+      follower_count: p.user_info.follower_count,
+      // Apenas os últimos 5 posts (legendas) para ele entender o nicho
+      recent_captions: p.posts?.slice(0, 5).map((post: any) => post.caption?.substring(0, 200) || "")
+    }));
 
-    // 3: Repassar os dados oficiais de volta para a IA analisar
-    const analysisPrompt = `Abaixo estão os dados OBTIDOS DIRETAMENTE DA NOSSA API DO INSTAGRAM para ${selectedProfiles.length} influenciadores reais.
+    console.log(`Enviando ${simplifiedProfilesForLLM.length} perfis reais para o Kimi resumir...`);
+
+    const analysisPrompt = `Abaixo estão os dados RESUMIDOS da NOSSA API OFICIAL para ${simplifiedProfilesForLLM.length} influenciadores.
 
 DADOS JSON:
 ---
-${JSON.stringify(selectedProfiles)}
+${JSON.stringify(simplifiedProfilesForLLM)}
 ---
 
-AGORA, SUA TAREFA:
-Transforme e analise os dados extraídos acima. Perceba os resumos baseados no que eles postam.
+Sua Tarefa: Transforme e embeleze os dados acima para exibição no frontend.
+Crie resumos engajadores sobre o conteúdo deles com base na biografia e captions.
 
-Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON (e somente JSON sem formatação Markdown, e cada objeto dentro do array será exatamente a lista final), com as chaves:
-- "name": O nome oficial ou do username via user_info.username.
-- "handle": "@" + user_info.username
+Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON com as chaves:
+- "name": O nome oficial ou do username
+- "handle": "@" + username
 - "platform": "Instagram"
-- "followerCount": Um string amigável (ex: "1.2M", "500K") com base em user_info.follower_count.
-- "engagementRate": metrics.filtered_result.engagement ou metrics.total_loaded.engagement.
-- "bioUrl": "https://instagram.com/" + user_info.username
-- "summary": Um breve resumo MTO CRIATIVO em Português sobre os conteúdos, lendo as captions curtas que o Json possui.
-- "topics": Um array de strings com tópicos/nichos em português.
+- "followerCount": Um string amigável (ex: "1.2M", "500K", converta o follower_count)
+- "engagementRate": "0.00%" (pode mandar 0.00%, nosso sistema vai substituir pela métrica oficial depois)
+- "bioUrl": "https://instagram.com/" + username
+- "summary": Um breve resumo MTO CRIATIVO e PREMIUM em Português sobre o tipo de conteúdo (aprox 2 linhas max).
+- "topics": Array de strings com 3 tópicos/nichos em português.
 - "location": "Brasil"
-- "profilePicUrl": copie EXATAMENTE a URL de user_info.profile_pic_url
+- "profilePicUrl": "vazio" (pode deixar vazio, sistema substituirá).
 - "sourceUrl": A url do instagram dele.
 
-LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenhum texto extra!`;
+LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
 
     const finalRes = await fetch("/api/nvidia/v1/chat/completions", {
       method: "POST",
@@ -205,15 +174,13 @@ LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenh
     if (!finalRes.ok) throw new Error(`Kimi Analysis Error: ${finalRes.statusText}`);
     const finalJson = await finalRes.json();
     let finalOut = finalJson.choices?.[0]?.message?.content || "[]";
-
-    // Limpar tag markdown se houver
     finalOut = finalOut.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     let influencers: Influencer[] = [];
     try {
       const parsedArray: Influencer[] = JSON.parse(finalOut);
 
-      // Mesclar dados exatos OBTIDOS da API real na saída final da IA (garante zero alucinação pra números fechados)
+      // 4. Último Merge: Junta os textos bonitos do LLM com os números FECHADOS e IMAGENS da nossa API oficial.
       influencers = parsedArray.map(inf => {
         const infClean = inf.handle.replace('@', '').toLowerCase().trim();
         const realProfile = validProfiles.find(p => p.user_info.username.toLowerCase() === infClean);
@@ -221,12 +188,12 @@ LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenh
         if (realProfile) {
           return {
             ...inf,
+            profilePicUrl: realProfile.user_info.profile_pic_url,
             views_count: realProfile.metrics?.total_loaded?.views || 0,
             likes_count: realProfile.metrics?.total_loaded?.likes || 0,
             posts_count: realProfile.metrics?.total_loaded?.posts || 0,
             comments_count: realProfile.metrics?.total_loaded?.comments || 0,
             category: realProfile.user_info.category || undefined,
-            // Sobrescrever engagement rate caso o modelo tenha cuspido algo estranho
             engagementRate: realProfile.metrics?.total_loaded?.engagement || inf.engagementRate,
             lastPostImageUrl: realProfile.posts?.[0]?.image_url || undefined,
           };
