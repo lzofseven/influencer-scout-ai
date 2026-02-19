@@ -126,7 +126,7 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           height: 6px;
         }

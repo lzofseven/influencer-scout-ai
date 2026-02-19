@@ -140,7 +140,7 @@ Exemplo: ["nomedeusuario1", "nomedeusuario2", "luvadepedreiro"]`;
     await Promise.all(limitedHandles.map(async (h) => {
       try {
         const cleanHandle = h.replace('@', '').trim();
-        const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${cleanHandle}&view=basic`);
+        const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${cleanHandle}`);
         if (instaRes.ok) {
           const profileData = await instaRes.json();
           if (profileData && profileData.user_info && profileData.user_info.username) {
