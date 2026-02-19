@@ -79,7 +79,7 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
 
       <div className="relative w-full overflow-x-auto pb-4 custom-scrollbar">
         {/* Chart Container */}
-        <div className="h-[250px] min-w-[900px] flex items-end gap-3 px-2 relative">
+        <div className={`h-[250px] ${chartData.length > 5 ? 'min-w-[900px]' : 'w-full'} flex items-end justify-center gap-3 px-2 relative`}>
 
           {/* Horizontal Grid Lines */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0 opacity-50">
@@ -93,13 +93,16 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
             const heightPercentage = Math.max((item.rawValue / maxValue) * 100, 4); // Min 4% height
 
             return (
-              <div key={idx} className="group relative flex-1 flex flex-col justify-end items-center h-full z-10">
+              <div key={idx} className="group relative flex-1 max-w-[48px] flex flex-col justify-end items-center h-full z-10 mx-auto">
 
                 {/* Custom Tooltip */}
                 <div className="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-20 bg-gray-900 text-white text-[10px] py-1.5 px-3 rounded shadow-xl whitespace-nowrap pointer-events-none">
                   <div className="font-bold tracking-wide">{item.name}</div>
                   <div className="font-mono text-gray-300">
-                    {metric === 'followers' ? item.followerCount : item.engagementRate}
+                    {metric === 'followers' && item.followerCount}
+                    {metric === 'engagement' && (item.engagementRate || '0.00%')}
+                    {metric === 'views' && (typeof item.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(item.views_count) : 'Oculto')}
+                    {metric === 'likes' && (typeof item.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(item.likes_count) : 'Oculto')}
                   </div>
                   {/* Arrow */}
                   <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
