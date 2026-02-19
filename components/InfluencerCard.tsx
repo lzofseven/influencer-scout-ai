@@ -53,14 +53,26 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-4 mb-4 py-3 border-y border-gray-50 group-hover:border-gray-100 transition-colors">
+        <div className="grid grid-cols-4 gap-2 mb-4 py-3 border-y border-gray-50 group-hover:border-gray-100 transition-colors">
           <div>
             <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Seguidores</p>
-            <p className="text-lg font-bold font-mono text-gray-900">{data.followerCount}</p>
+            <p className="text-sm font-bold font-mono text-gray-900">{data.followerCount}</p>
           </div>
           <div>
-            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Engajamento</p>
-            <p className="text-lg font-bold font-mono text-gray-900">{data.engagementRate || '—'}</p>
+            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Views</p>
+            <p className="text-sm font-bold font-mono text-gray-900">
+              {data.views_count ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Curtidas</p>
+            <p className="text-sm font-bold font-mono text-gray-900">
+              {data.likes_count ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : '—'}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Engaj.</p>
+            <p className="text-sm font-bold font-mono text-gray-900">{data.engagementRate || '—'}</p>
           </div>
         </div>
 

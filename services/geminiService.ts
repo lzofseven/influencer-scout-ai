@@ -211,7 +211,27 @@ LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenh
 
     let influencers: Influencer[] = [];
     try {
-      influencers = JSON.parse(finalOut);
+      const parsedArray: Influencer[] = JSON.parse(finalOut);
+
+      // Mesclar dados exatos OBTIDOS da API real na saída final da IA (garante zero alucinação pra números fechados)
+      influencers = parsedArray.map(inf => {
+        const infClean = inf.handle.replace('@', '').toLowerCase().trim();
+        const realProfile = validProfiles.find(p => p.user_info.username.toLowerCase() === infClean);
+
+        if (realProfile) {
+          return {
+            ...inf,
+            views_count: realProfile.metrics?.total_loaded?.views_count || 0,
+            likes_count: realProfile.metrics?.total_loaded?.likes_count || 0,
+            posts_count: realProfile.metrics?.total_loaded?.posts_count || 0,
+            comments_count: realProfile.metrics?.total_loaded?.comments_count || 0,
+            // Sobrescrever engagement rate caso o modelo tenha cuspido algo estranho
+            engagementRate: realProfile.metrics?.total_loaded?.engagement || inf.engagementRate,
+          };
+        }
+        return inf;
+      });
+
     } catch (e) {
       console.error("Parse failed for Kimi final output", finalOut);
     }

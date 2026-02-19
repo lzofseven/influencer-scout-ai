@@ -10,6 +10,10 @@ export interface Influencer {
   location?: string;
   sourceUrl?: string; // Specific source found for this profile
   profilePicUrl?: string;
+  views_count?: number;
+  likes_count?: number;
+  posts_count?: number;
+  comments_count?: number;
 }
 
 export interface SearchState {
