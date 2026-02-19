@@ -1,3 +1,8 @@
+/**
+ * Serviço de IA Kimi-k2.5 da NVIDIA
+ * Responsável por buscar e analisar influenciadores usando IA
+ */
+
 import { Influencer } from "../types";
 import { fetchInstagramData } from "./instagramService";
 import { aggregateScrapingData } from "./scrapingService";
@@ -5,6 +10,10 @@ import { aggregateScrapingData } from "./scrapingService";
 const NVIDIA_API_KEY = "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";
 const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
 
+/**
+ * Busca influenciadores usando a IA Kimi-k2.5
+ * Integra scraping web, análise de IA e dados reais do Instagram
+ */
 export const searchInfluencers = async (query: string): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
   try {
     // Passo 1: Usar as 3 ferramentas de scraping para buscar influenciadores
@@ -60,7 +69,7 @@ export const searchInfluencers = async (query: string): Promise<{ influencers: I
     });
 
     if (!response.ok) {
-      throw new Error(`NVIDIA API error: ${response.status}`);
+      throw new Error(`NVIDIA Kimi API error: ${response.status}`);
     }
 
     const aiData = await response.json();
@@ -112,12 +121,7 @@ export const searchInfluencers = async (query: string): Promise<{ influencers: I
     };
 
   } catch (error) {
-    console.error("Error searching influencers with NVIDIA/Kimi:", error);
+    console.error("Error searching influencers with Kimi-k2.5:", error);
     throw error;
   }
-};
-
-// Função removida conforme solicitado (não gera mais imagens por IA)
-export const generateInfluencerImage = async (): Promise<string | null> => {
-  return null;
 };

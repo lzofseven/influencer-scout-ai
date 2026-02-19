@@ -3,7 +3,7 @@ import { ArrowRight, Loader2, AlertCircle, Check, Terminal } from 'lucide-react'
 import { InfluencerCard } from './components/InfluencerCard';
 import { MetricsChart } from './components/MetricsChart';
 import { Footer } from './components/Footer';
-import { searchInfluencers } from './services/geminiService';
+import { searchInfluencers } from './services/kimiService';
 import { Influencer, SearchStatus } from './types';
 
 const App: React.FC = () => {
