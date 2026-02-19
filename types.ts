@@ -9,6 +9,7 @@ export interface Influencer {
   topics: string[];
   location?: string;
   sourceUrl?: string; // Specific source found for this profile
+  profilePicUrl?: string;
 }
 
 export interface SearchState {

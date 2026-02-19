@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Influencer } from '../types';
-import { ExternalLink, MapPin, Search, Eye, User, Loader2, Sparkles } from 'lucide-react';
-import { generateInfluencerImage } from '../services/geminiService';
+import { ExternalLink, MapPin, Search, ArrowRight } from 'lucide-react';
 
 interface InfluencerCardProps {
   data: Influencer;
@@ -16,39 +15,6 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
   const cleanHandle = data.handle.replace('@', '').trim();
   const profileUrl = data.bioUrl || `https://www.instagram.com/${cleanHandle}`;
 
-  // URL Construction
-  const encodedUrl = encodeURIComponent(profileUrl);
-  const mShotsUrl = `https://s.wordpress.com/mshots/v1/${encodedUrl}?w=600`;
-
-  // Image State Machine
-  const [imageState, setImageState] = useState<'INITIAL' | 'GENERATING' | 'GENERATED' | 'FAILED'>('INITIAL');
-  const [currentImageSrc, setCurrentImageSrc] = useState<string>(mShotsUrl);
-
-  const handleImageError = async () => {
-    // Prevent infinite loops or multiple calls
-    if (imageState !== 'INITIAL') return;
-
-    setImageState('GENERATING');
-
-    try {
-      // Call the AI Service to generate a niche image
-      const generatedImage = await generateInfluencerImage(
-        data.topics,
-        "Aesthetic minimalist social media feed"
-      );
-
-      if (generatedImage) {
-        setCurrentImageSrc(generatedImage);
-        setImageState('GENERATED');
-      } else {
-        setImageState('FAILED');
-      }
-    } catch (error) {
-      console.error("Failed to generate fallback image", error);
-      setImageState('FAILED');
-    }
-  };
-
   return (
     <div
       style={style}
@@ -56,67 +22,34 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
     >
       {/* Top Section: Header & Preview */}
       <div className="p-6 pb-4">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gray-50 flex items-center justify-center text-black font-bold text-xs tracking-wider border border-gray-100 group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
-              {getInitials(data.name)}
-            </div>
+        <div className="flex items-start justify-between mb-6 border-b border-gray-50 pb-5">
+          <div className="flex items-center gap-4">
+            {data.profilePicUrl ? (
+              <img
+                src={data.profilePicUrl}
+                alt={data.name}
+                className="w-16 h-16 rounded-full object-cover border border-gray-100 shadow-sm"
+              />
+            ) : (
+              <div className="w-16 h-16 bg-gray-50 flex items-center justify-center text-black font-bold text-xl tracking-wider border border-gray-100 group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
+                {getInitials(data.name)}
+              </div>
+            )}
             <div className="overflow-hidden">
-              <h3 className="font-bold text-base leading-tight truncate pr-2">
+              <h3 className="font-bold text-lg leading-tight truncate pr-2">
                 {data.name}
               </h3>
               <a
                 href={profileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-black flex items-center gap-1 font-medium transition-colors mt-0.5"
+                className="text-sm text-gray-500 hover:text-black flex items-center gap-1 font-medium transition-colors mt-0.5"
               >
                 {data.handle}
-                <ExternalLink size={10} />
+                <ExternalLink size={12} />
               </a>
             </div>
           </div>
-        </div>
-
-        {/* AI Visual Analysis + Screenshot Preview */}
-        <div className="mb-4 relative rounded-lg overflow-hidden border border-gray-100 bg-gray-50 group-hover:border-gray-200 transition-colors">
-          <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100 flex items-center justify-center">
-
-            {/* Placeholder Pattern Background */}
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>
-
-            {/* The Image Logic */}
-            {imageState === 'GENERATING' ? (
-              <div className="flex flex-col items-center justify-center gap-2 z-20 text-blue-600">
-                <Loader2 className="animate-spin w-8 h-8" />
-                <span className="text-[10px] font-bold uppercase tracking-widest animate-pulse">Gerando Visual...</span>
-              </div>
-            ) : (
-              <img
-                src={currentImageSrc}
-                alt={`Visual de ${data.name}`}
-                className={`relative w-full h-full object-cover object-top z-10 transition-all duration-700 ${imageState === 'GENERATED' ? 'opacity-0 animate-fade-in hover:scale-105' : 'hover:scale-105'}`}
-                loading="lazy"
-                onError={handleImageError}
-              />
-            )}
-
-            {/* Final Fallback Icon if generation fails */}
-            {imageState === 'FAILED' && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-300 z-0">
-                <User size={32} />
-              </div>
-            )}
-
-            {/* Badge indicating this is a generated image */}
-            {imageState === 'GENERATED' && (
-              <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[9px] px-2 py-1 rounded-full flex items-center gap-1 z-30 font-bold tracking-widest border border-white/10">
-                <Sparkles size={8} /> IA GENERATED
-              </div>
-            )}
-          </div>
-
-          {/* Visual Analysis Text REMOVED */}
         </div>
 
         {/* Stats Grid */}

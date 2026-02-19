@@ -182,6 +182,7 @@ Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON (e somente JSON sem formatação Mar
 - "summary": Um breve resumo MTO CRIATIVO em Português sobre os conteúdos, lendo as captions curtas que o Json possui.
 - "topics": Um array de strings com tópicos/nichos em português.
 - "location": "Brasil"
+- "profilePicUrl": copie EXATAMENTE a URL de user_info.profile_pic_url
 - "sourceUrl": A url do instagram dele.
 
 LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenhum texto extra!`;
