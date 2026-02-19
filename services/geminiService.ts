@@ -97,7 +97,6 @@ Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON (e somente JSON sem formatação Mar
 - "topics": Um array de strings com tópicos/nichos em português.
 - "location": "Brasil"
 - "sourceUrl": A url do instagram dele.
-- "visualAnalysis": Uma análise estética inferida através de is_video e como o engajamento flui, estilo do perfil em PT-BR.
 
 LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenhum texto extra!`;
 

@@ -11,11 +11,11 @@ interface InfluencerCardProps {
 
 export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, className }) => {
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-  
+
   // Clean handle for URL construction
   const cleanHandle = data.handle.replace('@', '').trim();
   const profileUrl = data.bioUrl || `https://www.instagram.com/${cleanHandle}`;
-  
+
   // URL Construction
   const encodedUrl = encodeURIComponent(profileUrl);
   const mShotsUrl = `https://s.wordpress.com/mshots/v1/${encodedUrl}?w=600`;
@@ -29,12 +29,12 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
     if (imageState !== 'INITIAL') return;
 
     setImageState('GENERATING');
-    
+
     try {
       // Call the AI Service to generate a niche image
       const generatedImage = await generateInfluencerImage(
-        data.topics, 
-        data.visualAnalysis || "Aesthetic minimalist social media feed"
+        data.topics,
+        "Aesthetic minimalist social media feed"
       );
 
       if (generatedImage) {
@@ -50,7 +50,7 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
   };
 
   return (
-    <div 
+    <div
       style={style}
       className={`group relative flex flex-col h-full bg-white border border-gray-200 hover:border-black hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 p-0 overflow-hidden ${className || ''}`}
     >
@@ -65,9 +65,9 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
               <h3 className="font-bold text-base leading-tight truncate pr-2">
                 {data.name}
               </h3>
-              <a 
+              <a
                 href={profileUrl}
-                target="_blank" 
+                target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-gray-500 hover:text-black flex items-center gap-1 font-medium transition-colors mt-0.5"
               >
@@ -81,51 +81,42 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
         {/* AI Visual Analysis + Screenshot Preview */}
         <div className="mb-4 relative rounded-lg overflow-hidden border border-gray-100 bg-gray-50 group-hover:border-gray-200 transition-colors">
           <div className="relative aspect-[16/9] w-full overflow-hidden bg-gray-100 flex items-center justify-center">
-             
-             {/* Placeholder Pattern Background */}
-             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>
 
-             {/* The Image Logic */}
-             {imageState === 'GENERATING' ? (
-                <div className="flex flex-col items-center justify-center gap-2 z-20 text-blue-600">
-                  <Loader2 className="animate-spin w-8 h-8" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest animate-pulse">Gerando Visual...</span>
-                </div>
-             ) : (
-               <img 
-                 src={currentImageSrc} 
-                 alt={`Visual de ${data.name}`}
-                 className={`relative w-full h-full object-cover object-top z-10 transition-all duration-700 ${imageState === 'GENERATED' ? 'opacity-0 animate-fade-in hover:scale-105' : 'hover:scale-105'}`}
-                 loading="lazy"
-                 onError={handleImageError}
-               />
-             )}
-             
-             {/* Final Fallback Icon if generation fails */}
-             {imageState === 'FAILED' && (
-               <div className="absolute inset-0 flex items-center justify-center text-gray-300 z-0">
-                  <User size={32} />
-               </div>
-             )}
+            {/* Placeholder Pattern Background */}
+            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:16px_16px]"></div>
 
-             {/* Badge indicating this is a generated image */}
-             {imageState === 'GENERATED' && (
-                <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[9px] px-2 py-1 rounded-full flex items-center gap-1 z-30 font-bold tracking-widest border border-white/10">
-                  <Sparkles size={8} /> IA GENERATED
-                </div>
-             )}
+            {/* The Image Logic */}
+            {imageState === 'GENERATING' ? (
+              <div className="flex flex-col items-center justify-center gap-2 z-20 text-blue-600">
+                <Loader2 className="animate-spin w-8 h-8" />
+                <span className="text-[10px] font-bold uppercase tracking-widest animate-pulse">Gerando Visual...</span>
+              </div>
+            ) : (
+              <img
+                src={currentImageSrc}
+                alt={`Visual de ${data.name}`}
+                className={`relative w-full h-full object-cover object-top z-10 transition-all duration-700 ${imageState === 'GENERATED' ? 'opacity-0 animate-fade-in hover:scale-105' : 'hover:scale-105'}`}
+                loading="lazy"
+                onError={handleImageError}
+              />
+            )}
+
+            {/* Final Fallback Icon if generation fails */}
+            {imageState === 'FAILED' && (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-300 z-0">
+                <User size={32} />
+              </div>
+            )}
+
+            {/* Badge indicating this is a generated image */}
+            {imageState === 'GENERATED' && (
+              <div className="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[9px] px-2 py-1 rounded-full flex items-center gap-1 z-30 font-bold tracking-widest border border-white/10">
+                <Sparkles size={8} /> IA GENERATED
+              </div>
+            )}
           </div>
-          
-          {/* Visual Analysis Text */}
-          {data.visualAnalysis && (
-            <div className="p-3 bg-white border-t border-gray-100 relative z-20">
-               <div className="flex items-center gap-2 mb-1">
-                 <Eye size={10} className="text-blue-600" />
-                 <span className="text-[9px] font-bold uppercase text-gray-400 tracking-wider">Análise Visual IA</span>
-               </div>
-               <p className="text-[11px] text-gray-600 italic leading-snug">"{data.visualAnalysis}"</p>
-            </div>
-          )}
+
+          {/* Visual Analysis Text REMOVED */}
         </div>
 
         {/* Stats Grid */}
@@ -142,11 +133,11 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
 
         {/* Text Content */}
         <div>
-           {data.location && (
-              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-2 font-medium uppercase tracking-wide">
-                  <MapPin size={10} />
-                  {data.location}
-              </div>
+          {data.location && (
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-2 font-medium uppercase tracking-wide">
+              <MapPin size={10} />
+              {data.location}
+            </div>
           )}
           <p className="text-xs text-gray-600 leading-relaxed mb-4 line-clamp-3">
             {data.summary}
@@ -165,26 +156,26 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
         </div>
 
         <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-           {data.sourceUrl ? (
-             <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[9px] text-gray-400 hover:text-blue-600 transition-colors truncate max-w-[150px]">
-               <Search size={10} />
-               <span className="truncate">Fonte Verificada</span>
-             </a>
-           ) : (
-             <span className="text-[9px] text-gray-300 flex items-center gap-1.5">
-               <Search size={10} />
-               IA Search
-             </span>
-           )}
-           
-           <a 
+          {data.sourceUrl ? (
+            <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[9px] text-gray-400 hover:text-blue-600 transition-colors truncate max-w-[150px]">
+              <Search size={10} />
+              <span className="truncate">Fonte Verificada</span>
+            </a>
+          ) : (
+            <span className="text-[9px] text-gray-300 flex items-center gap-1.5">
+              <Search size={10} />
+              IA Search
+            </span>
+          )}
+
+          <a
             href={profileUrl}
-            target="_blank" 
+            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-black hover:underline"
-           >
-             Ver <ArrowRightIcon className="w-3 h-3" />
-           </a>
+          >
+            Ver <ArrowRightIcon className="w-3 h-3" />
+          </a>
         </div>
       </div>
     </div>
@@ -192,7 +183,7 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
 };
 
 // Helper Icon
-const ArrowRightIcon = ({className}: {className?: string}) => (
+const ArrowRightIcon = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <line x1="5" y1="12" x2="19" y2="12"></line>
     <polyline points="12 5 19 12 12 19"></polyline>
