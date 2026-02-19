@@ -221,10 +221,11 @@ LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenh
         if (realProfile) {
           return {
             ...inf,
-            views_count: realProfile.metrics?.total_loaded?.views_count || 0,
-            likes_count: realProfile.metrics?.total_loaded?.likes_count || 0,
-            posts_count: realProfile.metrics?.total_loaded?.posts_count || 0,
-            comments_count: realProfile.metrics?.total_loaded?.comments_count || 0,
+            views_count: realProfile.metrics?.total_loaded?.views || 0,
+            likes_count: realProfile.metrics?.total_loaded?.likes || 0,
+            posts_count: realProfile.metrics?.total_loaded?.posts || 0,
+            comments_count: realProfile.metrics?.total_loaded?.comments || 0,
+            category: realProfile.user_info.category || undefined,
             // Sobrescrever engagement rate caso o modelo tenha cuspido algo estranho
             engagementRate: realProfile.metrics?.total_loaded?.engagement || inf.engagementRate,
             lastPostImageUrl: realProfile.posts?.[0]?.image_url || undefined,

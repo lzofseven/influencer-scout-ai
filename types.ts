@@ -15,6 +15,7 @@ export interface Influencer {
   posts_count?: number;
   comments_count?: number;
   lastPostImageUrl?: string;
+  category?: string;
 }
 
 export interface SearchState {

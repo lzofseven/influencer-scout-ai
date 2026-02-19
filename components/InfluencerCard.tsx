@@ -53,15 +53,22 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
               <h3 className="font-bold text-xl leading-tight truncate pr-2">
                 {data.name}
               </h3>
-              <a
-                href={profileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-black flex items-center gap-1 font-medium transition-colors mt-0.5"
-              >
-                {data.handle}
-                <ExternalLink size={12} />
-              </a>
+              <div className="flex items-center gap-2 mt-0.5">
+                <a
+                  href={profileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-500 hover:text-black flex items-center gap-1 font-medium transition-colors"
+                >
+                  {data.handle}
+                  <ExternalLink size={12} />
+                </a>
+                {data.category && (
+                  <span className="text-[10px] bg-gray-50 px-1.5 py-0.5 rounded-sm text-gray-400 font-semibold uppercase tracking-tight border border-gray-100">
+                    {data.category}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>
