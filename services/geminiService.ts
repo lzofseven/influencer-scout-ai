@@ -4,45 +4,66 @@ const NVIDIA_API_KEY = "nvapi-Hrhc9Payou82XIW7xctTdraFm2eY_r6GHmypzPg_MmAZS-6X2w
 
 export const searchInfluencers = async (query: string): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
   try {
-    // 1: Solicita ao Kimi pelo menos 20 nomes de influenciadores (Instagram handles) daquele assunto.
-    const handlesPrompt = `Aja como um recrutador/hunter de influenciadores brasileiros.
-O usuário procura: "${query}".
-SUA ÚNICA TAREFA: Liste exatamente 20 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores FAMOSOS e MUITO reais que existam perfeitamente nesta área. Se não tiver certeza de 20, liste menos (ex: 10 ou 15).
-É EXTREMAMENTE IMPORTANTE que esses perfis existam de verdade na plataforma. Não invente nomes!
-IMPORTANTE: Sua resposta DEVE SER ESTRITAMENTE E UNICAMENTE UM ARRAY JSON PURO de strings, sem qualquer explicação a mais e SEM TEXTO MARKDOWN.
-Exemplo:
-["nomedeusuario1", "nomedeusuario2", "luvadepedreiro"]`;
-
-    const handlesRes = await fetch("/api/nvidia/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${NVIDIA_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "moonshotai/kimi-k2.5",
-        messages: [{ role: "user", content: handlesPrompt }],
-        max_tokens: 1024,
-        temperature: 0.1,
-        chat_template_kwargs: { "thinking": false }
-      })
-    });
-
-    if (!handlesRes.ok) throw new Error(`Kimi Handles Error: ${handlesRes.statusText}`);
-    const handlesJson = await handlesRes.json();
-    let textOutContext = handlesJson.choices?.[0]?.message?.content || "[]";
-
-    // Limpar markdown da resposta do Kimi
-    textOutContext = textOutContext.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // 1: Buscar nomes de influenciadores reais usando um proxy de busca (DuckDuckGo HTML)
+    // Isso evita completamente que a IA invente nomes.
+    const searchQuery = encodeURIComponent(`site:instagram.com "influenciador" OR "criador de conteúdo" ${query}`);
     let handlesToFetch: string[] = [];
+
     try {
-      handlesToFetch = JSON.parse(textOutContext);
+      // Usamos uma rota simples do DuckDuckGo HTML Lite (menos chance de block) cruzando CORS se necessário
+      const searchRes = await fetch(`https://html.duckduckgo.com/html/?q=${searchQuery}`);
+      const htmlText = await searchRes.text();
+
+      // Regex simples para capturar URLs do Instagram nos resultados
+      const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
+      const matches = [...htmlText.matchAll(instaRegex)];
+
+      // Filtrar rotas genéricas do instagram (como /p/, /reels/, /explore/, etc)
+      const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer'];
+
+      matches.forEach(match => {
+        const handle = match[1].toLowerCase();
+        if (!ignoredHandles.includes(handle) && handle.length > 2 && !handlesToFetch.includes(handle)) {
+          handlesToFetch.push(handle);
+        }
+      });
+
     } catch (e) {
-      console.warn("Failed to parse handles from Kimi, falling back to a default handle.", textOutContext);
+      console.warn("Falha ao buscar no DuckDuckGo, usando Kimi como Fallback...", e);
+
+      // FALLBACK: Se a busca falhar, tenta usar o Kimi (com risco de alucinação)
+      const handlesPrompt = `Aja como um recrutador/hunter de influenciadores brasileiros.
+O usuário procura: "${query}".
+SUA ÚNICA TAREFA: Liste exatamente 10 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores FAMOSOS e MUITO reais que existam perfeitamente nesta área.
+IMPORTANTE: Retorne APENAS um Array JSON puro de strings. Exemplo: ["nomedeusuario1", "nomedeusuario2"]`;
+
+      const handlesRes = await fetch("/api/nvidia/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${NVIDIA_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "moonshotai/kimi-k2.5",
+          messages: [{ role: "user", content: handlesPrompt }],
+          max_tokens: 1024,
+          temperature: 0.1,
+          chat_template_kwargs: { "thinking": false }
+        })
+      });
+
+      if (handlesRes.ok) {
+        const handlesJson = await handlesRes.json();
+        let textOutContext = handlesJson.choices?.[0]?.message?.content || "[]";
+        textOutContext = textOutContext.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+          handlesToFetch = JSON.parse(textOutContext);
+        } catch (err) { }
+      }
     }
 
     if (!Array.isArray(handlesToFetch) || handlesToFetch.length === 0) {
-      handlesToFetch = ["loohansb"]; // Fallback safe
+      handlesToFetch = ["loohansb"]; // Fallback extremo
     }
 
     // 2: Para cada handle gerado, consulta a API real do Instagram LZ
