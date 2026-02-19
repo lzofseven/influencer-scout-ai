@@ -12,7 +12,7 @@ IMPORTANTE: Sua resposta DEVE SER ESTRITAMENTE E UNICAMENTE UM ARRAY JSON PURO d
 Exemplo:
 ["nomedeusuario1", "nomedeusuario2", "luvadepedreiro"]`;
 
-    const handlesRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const handlesRes = await fetch("/api/nvidia/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${NVIDIA_API_KEY}`,
@@ -96,7 +96,7 @@ Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON (e somente JSON sem formatação Mar
 
 LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenhum texto extra!`;
 
-    const finalRes = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+    const finalRes = await fetch("/api/nvidia/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${NVIDIA_API_KEY}`,
