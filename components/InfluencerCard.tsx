@@ -75,18 +75,18 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
           <div>
             <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Views</p>
             <p className="text-sm font-bold font-mono text-gray-900">
-              {typeof data.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : '—'}
+              {typeof data.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : 'Oculto'}
             </p>
           </div>
           <div>
             <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Curtidas</p>
             <p className="text-sm font-bold font-mono text-gray-900">
-              {typeof data.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : '—'}
+              {typeof data.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : 'Oculto'}
             </p>
           </div>
           <div>
             <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Engaj.</p>
-            <p className="text-sm font-bold font-mono text-gray-900">{data.engagementRate || '—'}</p>
+            <p className="text-sm font-bold font-mono text-gray-900">{data.engagementRate || 'Oculto'}</p>
           </div>
         </div>
 
