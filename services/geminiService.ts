@@ -4,40 +4,103 @@ const NVIDIA_API_KEY = "nvapi-Hrhc9Payou82XIW7xctTdraFm2eY_r6GHmypzPg_MmAZS-6X2w
 
 export const searchInfluencers = async (query: string): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
   try {
-    // 1: Buscar nomes de influenciadores reais usando um proxy de busca (DuckDuckGo HTML)
-    // Isso evita completamente que a IA invente nomes.
-    const searchQuery = encodeURIComponent(`site:instagram.com "influenciador" OR "criador de conteúdo" ${query}`);
     let handlesToFetch: string[] = [];
 
-    try {
-      // Usamos uma rota simples do DuckDuckGo HTML Lite (menos chance de block) cruzando CORS se necessário
-      const searchRes = await fetch(`/api/ddg/html/?q=${searchQuery}`);
-      const htmlText = await searchRes.text();
-
-      // Regex simples para capturar URLs do Instagram nos resultados
-      const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
-      const matches = [...htmlText.matchAll(instaRegex)];
-
-      // Filtrar rotas genéricas do instagram (como /p/, /reels/, /explore/, etc)
-      const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer'];
-
-      matches.forEach(match => {
-        const handle = match[1].toLowerCase();
-        if (!ignoredHandles.includes(handle) && handle.length > 2 && !handlesToFetch.includes(handle)) {
-          handlesToFetch.push(handle);
-        }
-      });
-
-    } catch (e) {
-      console.warn("Falha ao buscar no DuckDuckGo, usando Kimi como Fallback...", e);
-
-      // FALLBACK: Se a busca falhar, tenta usar o Kimi (com risco de alucinação)
-      const handlesPrompt = `Aja como um recrutador/hunter de influenciadores brasileiros.
+    // 1: Solicita ao Kimi pelo menos 10 nomes de influenciadores reais.
+    // Desta vez, fornecemos a ele a FERRAMENTA (tool) de buscar na web para que ele NÃO invente.
+    const handlesPrompt = `Aja como um recrutador/hunter de influenciadores brasileiros.
 O usuário procura: "${query}".
-SUA ÚNICA TAREFA: Liste exatamente 10 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores FAMOSOS e MUITO reais que existam perfeitamente nesta área.
-IMPORTANTE: Retorne APENAS um Array JSON puro de strings. Exemplo: ["nomedeusuario1", "nomedeusuario2"]`;
 
-      const handlesRes = await fetch("/api/nvidia/v1/chat/completions", {
+SUA ÚNICA TAREFA: Liste exatamente 10 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores FAMOSOS e MUITO reais que existam perfeitamente nesta área. Se não tiver certeza de 10, liste menos (ex: 5).
+É EXTREMAMENTE IMPORTANTE que esses perfis existam de verdade na plataforma. Não invente nomes!
+
+VOCÊ DEVE USAR A FERRAMENTA 'search_web' PARA CONSULTAR A INTERNET E ENCONTRAR PERFIS REAIS ANTES DE RESPONDER.
+Consulte algo como: site:instagram.com "influenciador" OR "criador de conteúdo" ${query}
+
+IMPORTANTE: A sua resposta final ao usuário DEVE SER ESTRITAMENTE E UNICAMENTE UM ARRAY JSON PURO de strings.
+Exemplo: ["nomedeusuario1", "nomedeusuario2", "luvadepedreiro"]`;
+
+    // Define the tool available to the model
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "search_web",
+          description: "Pesquisa na web usando DuckDuckGo para encontrar informações reais, URLs e handles do Instagram.",
+          parameters: {
+            type: "object",
+            properties: {
+              search_query: {
+                type: "string",
+                description: "A query de busca (ex: site:instagram.com tech)"
+              }
+            },
+            required: ["search_query"]
+          }
+        }
+      }
+    ];
+
+    let messages: any[] = [{ role: "user", content: handlesPrompt }];
+
+    // Primeira chamada: O modelo pode pedir para usar a ferramenta
+    const firstRes = await fetch("/api/nvidia/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${NVIDIA_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "moonshotai/kimi-k2.5",
+        messages: messages,
+        tools: tools,
+        max_tokens: 1024,
+        temperature: 0.1
+      })
+    });
+
+    if (!firstRes.ok) throw new Error(`Kimi Handles Error 1: ${firstRes.statusText}`);
+    const firstJson = await firstRes.json();
+    const responseMessage = firstJson.choices[0].message;
+
+    // Verifica se o modelo quer chamar a ferramenta
+    if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
+      messages.push(responseMessage); // Adiciona a assistente chamando a feramenta no histórico
+
+      for (const toolCall of responseMessage.tool_calls) {
+        if (toolCall.function.name === "search_web") {
+          const args = JSON.parse(toolCall.function.arguments);
+          const sq = encodeURIComponent(args.search_query);
+
+          // Executa a busca real na nossa proxy
+          let toolResultText = "Nenhum resultado encontrado.";
+          try {
+            const searchRes = await fetch(`/api/ddg/html/?q=${sq}`);
+            const htmlText = await searchRes.text();
+
+            // Extrair handles do HTML para economizar tokens
+            const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
+            const matches = [...htmlText.matchAll(instaRegex)];
+            const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer'];
+            const found = matches.map(m => m[1].toLowerCase()).filter(h => !ignoredHandles.includes(h) && h.length > 2);
+
+            toolResultText = `Encontrei estes perfis no Google/DuckDuckGo: ${Array.from(new Set(found)).join(", ")}`;
+          } catch (e) {
+            toolResultText = "Erro ao buscar na web.";
+          }
+
+          // Devolve a resposta da ferramenta pro modelo
+          messages.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            name: toolCall.function.name,
+            content: toolResultText
+          });
+        }
+      }
+
+      // Segunda chamada com os resultados da ferramenta
+      const secondRes = await fetch("/api/nvidia/v1/chat/completions", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${NVIDIA_API_KEY}`,
@@ -45,21 +108,23 @@ IMPORTANTE: Retorne APENAS um Array JSON puro de strings. Exemplo: ["nomedeusuar
         },
         body: JSON.stringify({
           model: "moonshotai/kimi-k2.5",
-          messages: [{ role: "user", content: handlesPrompt }],
+          messages: messages,
           max_tokens: 1024,
-          temperature: 0.1,
-          chat_template_kwargs: { "thinking": false }
+          temperature: 0.1
         })
       });
 
-      if (handlesRes.ok) {
-        const handlesJson = await handlesRes.json();
-        let textOutContext = handlesJson.choices?.[0]?.message?.content || "[]";
-        textOutContext = textOutContext.replace(/```json/gi, '').replace(/```/g, '').trim();
-        try {
-          handlesToFetch = JSON.parse(textOutContext);
-        } catch (err) { }
+      if (secondRes.ok) {
+        const secondJson = await secondRes.json();
+        let finalAnswer = secondJson.choices[0].message.content || "[]";
+        finalAnswer = finalAnswer.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try { handlesToFetch = JSON.parse(finalAnswer); } catch (e) { }
       }
+    } else {
+      // Se o modelo resolveu responder direto sem a ferramenta
+      let textOutContext = responseMessage.content || "[]";
+      textOutContext = textOutContext.replace(/```json/gi, '').replace(/```/g, '').trim();
+      try { handlesToFetch = JSON.parse(textOutContext); } catch (e) { }
     }
 
     if (!Array.isArray(handlesToFetch) || handlesToFetch.length === 0) {
