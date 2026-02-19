@@ -4,10 +4,11 @@ const NVIDIA_API_KEY = "nvapi-Hrhc9Payou82XIW7xctTdraFm2eY_r6GHmypzPg_MmAZS-6X2w
 
 export const searchInfluencers = async (query: string): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
   try {
-    // 1: Solicita ao Kimi pelo menos 10 nomes de influenciadores (Instagram handles) daquele assunto.
+    // 1: Solicita ao Kimi pelo menos 20 nomes de influenciadores (Instagram handles) daquele assunto.
     const handlesPrompt = `Aja como um recrutador/hunter de influenciadores brasileiros.
 O usuário procura: "${query}".
-SUA ÚNICA TAREFA: Liste exatamente 10 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores MUITO reais que existam perfeitamente nesta área. Se não tiver certeza de 10, liste menos (ex: de 5 ou 8).
+SUA ÚNICA TAREFA: Liste exatamente 20 nomes de usuário (handles) reais do Instagram (sem usar '@' ou 'https://') de influenciadores FAMOSOS e MUITO reais que existam perfeitamente nesta área. Se não tiver certeza de 20, liste menos (ex: 10 ou 15).
+É EXTREMAMENTE IMPORTANTE que esses perfis existam de verdade na plataforma. Não invente nomes!
 IMPORTANTE: Sua resposta DEVE SER ESTRITAMENTE E UNICAMENTE UM ARRAY JSON PURO de strings, sem qualquer explicação a mais e SEM TEXTO MARKDOWN.
 Exemplo:
 ["nomedeusuario1", "nomedeusuario2", "luvadepedreiro"]`;
@@ -48,8 +49,8 @@ Exemplo:
     const validProfiles: any[] = [];
     const groundingUrls: string[] = [];
 
-    // Paraleliza as requisições até um máximo razoável. Para manter performance, limitamos a 10.
-    const limitedHandles = handlesToFetch.slice(0, 10);
+    // Paraleliza as requisições, buscando até 20 opções para tentar achar as 10 que realmente funcionam.
+    const limitedHandles = handlesToFetch.slice(0, 20);
     await Promise.all(limitedHandles.map(async (h) => {
       try {
         const cleanHandle = h.replace('@', '').trim();
@@ -67,15 +68,19 @@ Exemplo:
     }));
 
     if (validProfiles.length === 0) {
-      throw new Error("Nenhum perfil real ou aberto foi encontrado usando nossa API de extração para estes termos.");
+      console.warn("Nenhum perfil real ou aberto foi encontrado usando nossa API de extração para estes termos.");
+      return { influencers: [], groundingUrls: [] };
     }
 
+    // Limitar para enviar apenas os 10 primeiros válidos encontrados para a IA final
+    const selectedProfiles = validProfiles.slice(0, 10);
+
     // 3: Repassar os dados oficiais de volta para a IA analisar
-    const analysisPrompt = `Abaixo estão os dados OBTIDOS DIRETAMENTE DA NOSSA API DO INSTAGRAM para ${validProfiles.length} influenciadores reais.
+    const analysisPrompt = `Abaixo estão os dados OBTIDOS DIRETAMENTE DA NOSSA API DO INSTAGRAM para ${selectedProfiles.length} influenciadores reais.
 
 DADOS JSON:
 ---
-${JSON.stringify(validProfiles)}
+${JSON.stringify(selectedProfiles)}
 ---
 
 AGORA, SUA TAREFA:
