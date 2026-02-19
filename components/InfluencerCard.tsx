@@ -20,23 +20,37 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
       style={style}
       className={`group relative flex flex-col h-full bg-white border border-gray-200 hover:border-black hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 p-0 overflow-hidden ${className || ''}`}
     >
-      {/* Top Section: Header & Preview */}
-      <div className="p-6 pb-4">
-        <div className="flex items-start justify-between mb-6 border-b border-gray-50 pb-5">
-          <div className="flex items-center gap-4">
+      {/* Banner Section */}
+      <div className="relative h-32 w-full overflow-hidden bg-gray-100">
+        {data.lastPostImageUrl ? (
+          <img
+            src={data.lastPostImageUrl}
+            alt="Last Post Banner"
+            className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200"></div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent"></div>
+      </div>
+
+      {/* Profile & Header Section */}
+      <div className="px-6 -mt-8 relative z-10">
+        <div className="flex items-end justify-between mb-4 border-b border-gray-50 pb-5">
+          <div className="flex items-end gap-4">
             {data.profilePicUrl ? (
               <img
                 src={data.profilePicUrl}
                 alt={data.name}
-                className="w-16 h-16 rounded-full object-cover border border-gray-100 shadow-sm"
+                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg bg-white"
               />
             ) : (
-              <div className="w-16 h-16 bg-gray-50 flex items-center justify-center text-black font-bold text-xl tracking-wider border border-gray-100 group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
+              <div className="w-20 h-20 bg-gray-50 flex items-center justify-center text-black font-bold text-2xl tracking-wider border-4 border-white shadow-lg group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
                 {getInitials(data.name)}
               </div>
             )}
-            <div className="overflow-hidden">
-              <h3 className="font-bold text-lg leading-tight truncate pr-2">
+            <div className="overflow-hidden mb-1">
+              <h3 className="font-bold text-xl leading-tight truncate pr-2">
                 {data.name}
               </h3>
               <a

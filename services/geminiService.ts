@@ -227,6 +227,7 @@ LEMBRE-SE: Retorne APENAS o JSON puro do array \`[ { ... }, { ... } ]\` sem nenh
             comments_count: realProfile.metrics?.total_loaded?.comments_count || 0,
             // Sobrescrever engagement rate caso o modelo tenha cuspido algo estranho
             engagementRate: realProfile.metrics?.total_loaded?.engagement || inf.engagementRate,
+            lastPostImageUrl: realProfile.posts?.[0]?.image_url || undefined,
           };
         }
         return inf;
