@@ -1,0 +1,11 @@
+name = "influencerpro"
+type = "javascript"
+account_id = ""
+workers_dev = true
+route = ""
+zone_id = ""
+compatibility_date = "2024-01-01"
+
+[env.production]
+name = "influencerpro"
+route = "influencerpro.pages.dev"
