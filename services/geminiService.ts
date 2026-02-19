@@ -186,8 +186,16 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
         const realProfile = validProfiles.find(p => p.user_info.username.toLowerCase() === infClean);
 
         if (realProfile) {
+          // Format the exact follower count directly from the API
+          const rawFollowers = realProfile.user_info.follower_count || 0;
+          const formattedFollowers = Intl.NumberFormat('en-US', {
+            notation: "compact",
+            maximumFractionDigits: 1
+          }).format(rawFollowers);
+
           return {
             ...inf,
+            followerCount: formattedFollowers, // STRICT OVERRIDE: Never trust LLM for followers
             profilePicUrl: realProfile.user_info.profile_pic_url,
             views_count: realProfile.metrics?.total_loaded?.views || 0,
             likes_count: realProfile.metrics?.total_loaded?.likes || 0,
