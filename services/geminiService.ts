@@ -11,7 +11,7 @@ export const searchInfluencers = async (query: string): Promise<{ influencers: I
 
     try {
       // Usamos uma rota simples do DuckDuckGo HTML Lite (menos chance de block) cruzando CORS se necessário
-      const searchRes = await fetch(`https://html.duckduckgo.com/html/?q=${searchQuery}`);
+      const searchRes = await fetch(`/api/ddg/html/?q=${searchQuery}`);
       const htmlText = await searchRes.text();
 
       // Regex simples para capturar URLs do Instagram nos resultados

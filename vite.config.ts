@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
           target: 'https://integrate.api.nvidia.com',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/nvidia/, '')
+        },
+        '/api/ddg': {
+          target: 'https://html.duckduckgo.com',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/ddg/, '')
         }
       }
     },
