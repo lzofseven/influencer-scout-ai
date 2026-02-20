@@ -137,10 +137,9 @@ const App: React.FC = () => {
   };
 
   const exampleQueries = [
-    "Reviewers de tecnologia > 500k seguidores",
-    "Moda sustentável em São Paulo",
-    "Treinadores de fitness dieta keto",
-    "Micro-influenciadores de games"
+    "Influenciadoras maternas +10k",
+    "treinador fitness em são paulo",
+    "barbeiro profissional +100k"
   ];
 
   const isSearching = status === SearchStatus.SEARCHING;
