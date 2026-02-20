@@ -6,6 +6,34 @@ import { Footer } from './components/Footer';
 import { searchInfluencers } from './services/geminiService';
 import { Influencer, SearchStatus } from './types';
 
+// Skeleton Component to display while loading
+const SkeletonCard = () => (
+  <div className="w-full bg-white border-2 border-dashed border-gray-200 p-8 shadow-[12px_12px_0px_rgba(0,0,0,0.05)] h-full flex flex-col relative animate-pulse">
+    <div className="flex gap-4 mb-8">
+      <div className="w-24 h-24 bg-gray-200 rounded-sm shrink-0" />
+      <div className="flex flex-col justify-center flex-1 space-y-3">
+        <div className="h-6 bg-gray-200 w-3/4" />
+        <div className="h-4 bg-gray-100 w-1/2" />
+        <div className="flex gap-2">
+          <div className="w-16 h-5 bg-gray-100 rounded-full" />
+          <div className="w-16 h-5 bg-gray-100 rounded-full" />
+        </div>
+      </div>
+    </div>
+    <div className="grid grid-cols-4 gap-4 px-4 py-6 bg-gray-50 border border-gray-100 mb-8 mt-auto mx-[-32px]">
+      <div className="h-4 bg-gray-200 rounded w-full" />
+      <div className="h-4 bg-gray-200 rounded w-full" />
+      <div className="h-4 bg-gray-200 rounded w-full" />
+      <div className="h-4 bg-gray-200 rounded w-full" />
+    </div>
+    <div className="space-y-2 mt-4">
+      <div className="h-3 bg-gray-100 w-full" />
+      <div className="h-3 bg-gray-100 w-full" />
+      <div className="h-3 bg-gray-100 w-4/5" />
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState<SearchStatus>(SearchStatus.IDLE);
@@ -58,9 +86,19 @@ const App: React.FC = () => {
     setGroundingUrls([]);
 
     try {
-      const data = await searchInfluencers(query, (msg, current, target) => {
-        setProgressText(`${msg} - ${current}/${target} reais validados`);
-      });
+      const data = await searchInfluencers(
+        query,
+        (msg, current, target) => {
+          setProgressText(`${msg} - ${current}/${target} reais validados`);
+        },
+        (influencer) => {
+          setResults(prev => {
+            // Previne duplicados por StrictMode do React
+            if (prev.find(p => p.handle === influencer.handle)) return prev;
+            return [...prev, influencer];
+          });
+        }
+      );
       setResults(data.influencers);
       setGroundingUrls(data.groundingUrls);
       setStatus(SearchStatus.COMPLETED);
@@ -191,25 +229,36 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {results.length > 0 && (
+          {(results.length > 0 || status === SearchStatus.SEARCHING) && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-end justify-between mb-8 pb-4 border-b border-gray-100 opacity-0 animate-fade-in-up">
-                <h2 className="text-xl font-semibold tracking-tight">Resultados da Busca</h2>
-                <span className="text-xs font-mono text-gray-500">
-                  {results.length} ENCONTRADOS
-                </span>
-              </div>
+              {status === SearchStatus.COMPLETED && (
+                <div className="flex items-end justify-between mb-8 pb-4 border-b border-gray-100 opacity-0 animate-fade-in-up">
+                  <h2 className="text-xl font-semibold tracking-tight">Resultados da Busca</h2>
+                  <span className="text-xs font-mono text-gray-500">
+                    {results.length} ENCONTRADOS
+                  </span>
+                </div>
+              )}
 
-              {/* New Visualization Chart */}
-              <MetricsChart data={results} />
+              {/* Visualization Chart only renders when completed to avoid jittering */}
+              {status === SearchStatus.COMPLETED && (
+                <MetricsChart data={results} />
+              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32">
                 {results.map((influencer, index) => (
                   <InfluencerCard
                     key={index}
                     data={influencer}
                     className={`opacity-0 animate-fade-in-up stagger-${(index % 6) + 1}`}
                   />
+                ))}
+
+                {/* Dynamically render skeletons to fill the rest of the layout while searching */}
+                {status === SearchStatus.SEARCHING && Array.from({ length: Math.max(0, 9 - results.length) }).map((_, i) => (
+                  <div key={`skeleton-${i}`} className="opacity-50 transition-opacity duration-1000">
+                    <SkeletonCard />
+                  </div>
                 ))}
               </div>
 
