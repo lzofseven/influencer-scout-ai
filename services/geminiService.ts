@@ -6,140 +6,16 @@ export const searchInfluencers = async (
   query: string,
   onProgress?: (msg: string, current: number, target: number) => void
 ): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
-  try {
-    const TARGET_PROFILES = 15;
+  // 0. Cache Check Imediato
+  const normalizedQuery = query.toLowerCase().trim();
+  if (searchCache.has(normalizedQuery)) {
+    console.log(`📦 DELIVERING FROM CACHE: ${normalizedQuery}`);
+    if (onProgress) onProgress(`Recuperando cache super-rápido para "${normalizedQuery}"...`, 15, 15);
+    // Simula um delay minimo para UI não piscar brutalmente
+    await new Promise(r => setTimeout(r, 800));
+    return searchCache.get(normalizedQuery)!;
+  }
 
-    // 1. Decodificar a Intenção do Usuário (Nicho + Seguidores Dinâmicos)
-    const intentPrompt = `O usuário digitou: "${query}".
-Extraia o nicho principal pesquisado e o requisito numérico mínimo de seguidores.
-Se o usuário não especificar uma quantidade de seguidores explícita, assuma 10000 como mínimo padrão.
-Retorne EXATAMENTE UM JSON com as duas propriedades:
-- "cleanedQuery": o termo ideal para buscar no instagram (ex: "matemática e finanças").
-- "minFollowers": um número inteiro. (ex: se pediu "10 mil", retorne 10000. se pediu "1M", retorne 1000000. se não falar número, 10000).`;
-
-    let cleanedQuery = query;
-    let minFollowers = 10000;
-
-    try {
-      const intentRes = await fetch("/api/nvidia/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "moonshotai/kimi-k2.5",
-          messages: [{ role: "user", content: intentPrompt }],
-          max_tokens: 150,
-          temperature: 0.1
-        })
-      });
-      if (intentRes.ok) {
-        const intentJson = await intentRes.json();
-        let intentText = intentJson.choices?.[0]?.message?.content || "{}";
-        intentText = intentText.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const parsedIntent = JSON.parse(intentText);
-        if (parsedIntent.cleanedQuery) cleanedQuery = parsedIntent.cleanedQuery;
-        if (typeof parsedIntent.minFollowers === 'number') minFollowers = parsedIntent.minFollowers;
-      }
-    } catch (e) {
-      console.warn("Falha ao decodificar intenção, usando padrões", e);
-    }
-
-    // Inicia progresso na UI
-    if (onProgress) onProgress(cleanedQuery, 0, TARGET_PROFILES);
-
-    let allHandles = new Set<string>();
-    const validProfiles: any[] = [];
-    const groundingUrls: string[] = [];
-    let searchRound = 0; 
-    let currentMinFollowers = minFollowers;
-    const MAX_ROUNDS = 5; // Reduced from 15 to 5 to prevent infinite hanging when API is blocking
-    let apiConsecutiveErrors = 0; // Track 401s or timeouts to abort early
-
-    console.log(`Buscando "${cleanedQuery}" com minFollowers >= ${currentMinFollowers}. Alvo: ${TARGET_PROFILES}`);
-
-    // Loop contínuo FORÇADO até encontrar exatamente 15 válidos, limitando a 5 rodadas rápidas
-    while (validProfiles.length < TARGET_PROFILES && searchRound < MAX_ROUNDS && apiConsecutiveErrors < 30) {
-      
-      // A cada 2 rodadas sem sucesso total, relaxamos a exigência de seguidores drasticamente
-      if (searchRound > 0 && searchRound % 2 === 0) {
-        currentMinFollowers = Math.max(1000, Math.floor(currentMinFollowers / 3)); // Drop faster
-        console.log(`Dificuldade alta. Reduzindo filtro para: ${currentMinFollowers} seguidores`);
-        if (onProgress) onProgress(`Relaxando filtro para ${currentMinFollowers} seg...`, validProfiles.length, TARGET_PROFILES);
-      }
-
-      // DDG só é usado nas primeiras rodadas, depois Kimi assume pra evitar bloqueios do Google
-      if (searchRound < 2) {
-        const duckQueries = [
-          `site:instagram.com ${cleanedQuery} influenciador`,
-          `site:instagram.com "criador de conteúdo" ${cleanedQuery}`,
-          `site:instagram.com "k seguidores" ${cleanedQuery} brasil`
-        ];
-
-        // Fetch in parallel with 5s timeout
-        await Promise.all(duckQueries.map(async (sq) => {
-          try {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), 5000);
-            const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`, { signal: controller.signal });
-            clearTimeout(id);
-            if (!searchRes.ok) return;
-            const htmlText = await searchRes.text();
-            const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
-            const matches = [...htmlText.matchAll(instaRegex)];
-            const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
-            
-            matches.forEach(m => {
-              const h = m[1].toLowerCase().trim();
-              if (!ignoredHandles.includes(h) && h.length > 2 && !allHandles.has(h)) {
-                allHandles.add(h);
-              }
-            });
-          } catch (e) { }
-        }));
-      }
-
-      let unprocessedHandles = Array.from(allHandles).filter(
-        h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
-      );
-
-      // Se DDG falhou, invoca o Kimi UMA VEZ pedindo um lote grande, ao invés de várias vezes pequenas
-      if (unprocessedHandles.length < 15 && searchRound < 3) {
-         console.log("Kimi invocado para INJETAR force handles...");
-         if (onProgress) onProgress(`IA gerando novos perfis de ${cleanedQuery}...`, validProfiles.length, TARGET_PROFILES);
-         
-         const handlesPrompt = `O sistema PRECISA de influenciadores reais focados no assunto: "${cleanedQuery}". 
-         Retorne ESTRITAMENTE um array JSON puro com 50 handles reais e famosos do Instagram sem @.`;
-         
-         try {
-           const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
-              method: "POST",
-              headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-              body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 2000, temperature: 0.7 })
-           });
-           if (kimiRes.ok) {
-             const kimiJson = await kimiRes.json();
-             let text = kimiJson.choices?.[0]?.message?.content || "[]";
-             text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-             const kimiHandles = JSON.parse(text);
-             if (Array.isArray(kimiHandles)) {
-               kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
-             }
-           }
-         } catch(e) {
-           console.error("Kimi handle generation failed", e);
-         }
-
-         unprocessedHandles = Array.from(allHandles).filter(
-            h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
-         );
-      }
-      
-      // Validação massiva em lotes menores para não tomar 401 tão rápido
-      const CHUNK_SIZE = 15; 
-      for (let i = 0; i < unprocessedHandles.length; i += CHUNK_SIZE) {
-        if (validProfiles.length >= TARGET_PROFILES || apiConsecutiveErrors >= 30) break;
-        
-        const chunk = unprocessedHandles.slice(i, i + CHUNK_SIZE);
-        await Promise.all(chunk.map(async (h) => {
           if (validProfiles.length >= TARGET_PROFILES || apiConsecutiveErrors >= 30) return;
           try {
             const controller = new AbortController();
