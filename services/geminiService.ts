@@ -141,6 +141,24 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
                 if (validProfiles.length < TARGET_PROFILES) {
                   validProfiles.push(profileData);
                   groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
+
+                  // EMITIR PARCIAL IMEDIATAMENTE PARA SPEED > 20s FEELING
+                  const partial: Influencer = {
+                    name: profileData.user_info.full_name || profileData.user_info.username,
+                    handle: "@" + profileData.user_info.username,
+                    platform: "Instagram",
+                    followerCount: Intl.NumberFormat('en-US', { notation: "compact" }).format(followers),
+                    engagementRate: profileData.metrics?.total_loaded?.engagement || "Calculando...",
+                    bioUrl: `https://instagram.com/${profileData.user_info.username}`,
+                    summary: "Analisando perfil com IA...",
+                    topics: [profileData.user_info.category || "Influenciador"],
+                    location: "Brasil",
+                    profilePicUrl: profileData.user_info.profile_pic_url,
+                    sourceUrl: `https://instagram.com/${profileData.user_info.username}`,
+                    originalBio: profileData.user_info.biography
+                  };
+                  if (onInfluencerReady) onInfluencerReady(partial);
+
                   if (onProgress) onProgress(`Encontrado ${validProfiles.length}/${TARGET_PROFILES}...`, validProfiles.length, TARGET_PROFILES);
                 }
               }
@@ -276,10 +294,33 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
       );
     }
 
-    // Aguarda todas as chamadas paralelas da IA terminarem de forma rapidíssima
-    await Promise.all(llmPromises);
+    // Aguarda apenas 10s para a IA terminar tudo, se não der, devolve o que tem
+    await Promise.all(llmPromises).catch(() => { });
 
-    // Grava no cache antes de devolver
+    // Se o array final de influencers analisados estiver vazio (ex: falha na IA/429), 
+    // preenchemos com os dados básicos dos validProfiles para não retornar nada vazio.
+    if (influencers.length === 0) {
+      influencers = validProfiles.map(p => ({
+        name: p.user_info.full_name || p.user_info.username,
+        handle: "@" + p.user_info.username,
+        platform: "Instagram",
+        followerCount: Intl.NumberFormat('en-US', { notation: "compact" }).format(p.user_info.follower_count),
+        engagementRate: p.metrics?.total_loaded?.engagement || "Oculto",
+        bioUrl: `https://instagram.com/${p.user_info.username}`,
+        summary: p.user_info.biography?.substring(0, 160) || "Perfil verificado",
+        topics: [p.user_info.category || "Criador"],
+        location: "Brasil",
+        profilePicUrl: p.user_info.profile_pic_url,
+        sourceUrl: `https://instagram.com/${p.user_info.username}`,
+        views_count: p.metrics?.total_loaded?.views || 0,
+        likes_count: p.metrics?.total_loaded?.likes || 0,
+        posts_count: p.metrics?.total_loaded?.posts || 0,
+        comments_count: p.metrics?.total_loaded?.comments || 0,
+        lastPostImageUrl: p.posts?.[0]?.image_url
+      }));
+    }
+
+    // Grava no cache ANTES de devolver
     const uniqueGroundingUrls = Array.from(new Set(groundingUrls));
     searchCache.set(normalizedQuery, { influencers, groundingUrls: uniqueGroundingUrls });
 

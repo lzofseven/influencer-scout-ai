@@ -113,8 +113,12 @@ const App: React.FC = () => {
         (text) => setProgressText(text),
         (influencer) => {
           setResults(prev => {
-            // Previne duplicados por StrictMode do React
-            if (prev.find(i => i.handle === influencer.handle)) return prev;
+            const index = prev.findIndex(i => i.handle === influencer.handle);
+            if (index !== -1) {
+              const newResults = [...prev];
+              newResults[index] = influencer;
+              return newResults;
+            }
             return [...prev, influencer];
           });
         }
