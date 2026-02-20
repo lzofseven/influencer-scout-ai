@@ -49,69 +49,95 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
     let allHandles = new Set<string>();
     const validProfiles: any[] = [];
     const groundingUrls: string[] = [];
-    let duckDuckGoPages = 0; // Controle de paginação improvisada
+    let searchRound = 0; 
+    let currentMinFollowers = minFollowers;
+    const MAX_ROUNDS = 15;
 
-    console.log(`Buscando "${cleanedQuery}" com minFollowers >= ${minFollowers}. Alvo: ${TARGET_PROFILES}`);
+    console.log(`Buscando "${cleanedQuery}" com minFollowers >= ${currentMinFollowers}. Alvo: ${TARGET_PROFILES}`);
 
-    // Loop contínuo até encontrar exatamente 15 válidos, limitando a 5 rodadas para não ficar infinito
-    while (validProfiles.length < TARGET_PROFILES && duckDuckGoPages < 5) {
-
-      const duckQueries = [
-        `site:instagram.com ${cleanedQuery} ${duckDuckGoPages > 0 ? "influenciador" : ""}`,
-        `site:instagram.com "criador de conteúdo" ${cleanedQuery} ${duckDuckGoPages > 1 ? "oficial" : ""}`,
-        `melhores influenciadores de ${cleanedQuery} instagram ${duckDuckGoPages > 0 ? "lista" : ""}`,
-        `site:instagram.com "${cleanedQuery}" ${duckDuckGoPages > 2 ? "contato" : ""}`,
-        `site:instagram.com "k seguidores" ${cleanedQuery} ${duckDuckGoPages > 2 ? "brasil" : ""}`
-      ];
-
-      await Promise.all(duckQueries.map(async (sq) => {
-        try {
-          const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`);
-          if (!searchRes.ok) return;
-          const htmlText = await searchRes.text();
-          const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
-          const matches = [...htmlText.matchAll(instaRegex)];
-          const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
-
-          matches.forEach(m => {
-            const h = m[1].toLowerCase().trim();
-            if (!ignoredHandles.includes(h) && h.length > 2 && !allHandles.has(h)) {
-              allHandles.add(h);
-            }
-          });
-        } catch (e) { }
-      }));
-
-      // Se DDG falhou em dar volume, Kimi adiciona handles para tentar bater a meta
-      if (duckDuckGoPages === 1 && allHandles.size < TARGET_PROFILES) {
-        console.log("Kimi invocado para suplementar a lista escassa...");
-        const handlesPrompt = `O usuário exige mais influenciadores famosos do nicho: "${cleanedQuery}". Retorne JSON puro array com 30 nomes de usuário reais do Instagram sem @.`;
-        try {
-          const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
-            method: "POST",
-            headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.2 })
-          });
-          if (kimiRes.ok) {
-            const kimiJson = await kimiRes.json();
-            let text = kimiJson.choices?.[0]?.message?.content || "[]";
-            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const kimiHandles = JSON.parse(text);
-            if (Array.isArray(kimiHandles)) kimiHandles.forEach(h => allHandles.add(h.replace('@', '').toLowerCase().trim()));
-          }
-        } catch (e) { }
+    // Loop contínuo FORÇADO até encontrar exatamente 15 válidos, limitando a 15 rodadas
+    while (validProfiles.length < TARGET_PROFILES && searchRound < MAX_ROUNDS) {
+      
+      // A cada 3 rodadas sem sucesso total, relaxamos a exigência de seguidores pela metade
+      if (searchRound > 0 && searchRound % 3 === 0) {
+        currentMinFollowers = Math.max(1000, Math.floor(currentMinFollowers / 2));
+        console.log(`Dificuldade alta. Reduzindo filtro para: ${currentMinFollowers} seguidores`);
+        if (onProgress) onProgress(`Relaxando filtro para ${currentMinFollowers} seg...`, validProfiles.length, TARGET_PROFILES);
       }
 
-      // Filtrar Handles já processados (válidos ou descartados) da lista para a API
+      // DDG só é usado nas primeiras rodadas, depois Kimi assume 100% pra evitar bloqueios do Google
+      if (searchRound < 4) {
+        const duckQueries = [
+          `site:instagram.com ${cleanedQuery} ${searchRound > 0 ? "influenciador" : ""}`,
+          `site:instagram.com "criador de conteúdo" ${cleanedQuery} ${searchRound > 1 ? "oficial" : ""}`,
+          `melhores influenciadores de ${cleanedQuery} instagram ${searchRound > 0 ? "lista" : ""}`,
+          `site:instagram.com "${cleanedQuery}" ${searchRound > 2 ? "contato" : ""}`,
+          `site:instagram.com "k seguidores" ${cleanedQuery} ${searchRound > 2 ? "brasil" : ""}`
+        ];
+
+        await Promise.all(duckQueries.map(async (sq) => {
+          try {
+            const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`);
+            if (!searchRes.ok) return;
+            const htmlText = await searchRes.text();
+            const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
+            const matches = [...htmlText.matchAll(instaRegex)];
+            const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
+            
+            matches.forEach(m => {
+              const h = m[1].toLowerCase().trim();
+              if (!ignoredHandles.includes(h) && h.length > 2 && !allHandles.has(h)) {
+                allHandles.add(h);
+              }
+            });
+          } catch (e) { }
+        }));
+      }
+
       let unprocessedHandles = Array.from(allHandles).filter(
         h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
       );
 
-      // Validação massiva em lotes para descobrir quem bate o requisito de seguidores
-      const CHUNK_SIZE = 25;
+      // Se DDG falhou ou esgotou (poucos handles pra testar), Kimi FORÇA a criação de arrobas reais repetidamente
+      if (unprocessedHandles.length < 15) {
+         console.log("Kimi invocado para INJETAR force handles...");
+         if (onProgress) onProgress(`IA gerando novos perfis de ${cleanedQuery}...`, validProfiles.length, TARGET_PROFILES);
+         
+         const alreadyExplored = Array.from(allHandles).slice(-50).join(', ');
+         const handlesPrompt = `O sistema PRECISA de influenciadores reais focados no assunto: "${cleanedQuery}". 
+         Retorne ESTRITAMENTE um array JSON puro com 45 handles reais e famosos do Instagram sem @.
+         IMPORTANTE: Não repita NENHUM destes nomes: ${alreadyExplored}`;
+         
+         try {
+           const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 2000, temperature: 0.7 })
+           });
+           if (kimiRes.ok) {
+             const kimiJson = await kimiRes.json();
+             let text = kimiJson.choices?.[0]?.message?.content || "[]";
+             text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+             const kimiHandles = JSON.parse(text);
+             if (Array.isArray(kimiHandles)) {
+               kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+             }
+           }
+         } catch(e) {
+           console.error("Kimi handle generation failed", e);
+         }
+
+         // Re-calculamos logo em seguida
+         unprocessedHandles = Array.from(allHandles).filter(
+            h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
+         );
+      }
+      
+      // Validação massiva em lotes 
+      const CHUNK_SIZE = 25; 
       for (let i = 0; i < unprocessedHandles.length; i += CHUNK_SIZE) {
         if (validProfiles.length >= TARGET_PROFILES) break;
-
+        
         const chunk = unprocessedHandles.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk.map(async (h) => {
           if (validProfiles.length >= TARGET_PROFILES) return;
@@ -119,18 +145,18 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
             const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
             if (instaRes.ok) {
               const profileData = await instaRes.json();
-
+              
               const followers = profileData?.user_info?.follower_count || 0;
-              const isMinimalInfluencer = followers >= minFollowers; // Filtro Inteligente!
+              const isMinimalInfluencer = followers >= currentMinFollowers; // Filtro Inteligente! Dinâmico!
 
               if (profileData && profileData.user_info && profileData.user_info.username && isMinimalInfluencer) {
                 if (!validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
                   if (validProfiles.length < TARGET_PROFILES) {
                     validProfiles.push(profileData);
                     groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
-
+                    
                     // EMITINDO PROGRESSO REAL PRO FRONTEND
-                    if (onProgress) onProgress(`Buscando ${cleanedQuery}...`, validProfiles.length, TARGET_PROFILES);
+                    if (onProgress) onProgress(`Analisando ${cleanedQuery}...`, validProfiles.length, TARGET_PROFILES);
                   }
                 }
               }
@@ -141,9 +167,10 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         }));
       }
 
-      duckDuckGoPages++;
+      searchRound++;
     }
 
+    // Fallback de emergência (raro agora)
     if (validProfiles.length === 0) {
       console.warn("Nenhum perfil válido ou aberto encontrado na API com os requisitos exigidos.");
       return { influencers: [], groundingUrls: [] };
