@@ -39,22 +39,22 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
         </div>
 
         {/* Profile & Header Section */}
-        <div className="px-6 -mt-8 relative z-10">
-          <div className="flex items-end justify-between mb-4 border-b border-gray-50 dark:border-[#222] pb-5">
-            <div className="flex items-end gap-4">
+        <div className="px-4 md:px-6 -mt-8 relative z-10">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-4 border-b border-gray-50 dark:border-[#222] pb-5 gap-4">
+            <div className="flex items-end gap-3 md:gap-4">
               {data.profilePicUrl ? (
                 <img
                   src={data.profilePicUrl}
                   alt={data.name}
-                  className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-[#111] shadow-lg bg-white dark:bg-[#111]"
+                  className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-4 border-white dark:border-[#111] shadow-lg bg-white dark:bg-[#111]"
                 />
               ) : (
-                <div className="w-20 h-20 bg-gray-50 dark:bg-[#222] flex items-center justify-center text-black dark:text-white font-bold text-2xl tracking-wider border-4 border-white dark:border-[#111] shadow-lg group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-gray-50 dark:bg-[#222] flex items-center justify-center text-black dark:text-white font-bold text-xl md:text-2xl tracking-wider border-4 border-white dark:border-[#111] shadow-lg group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
                   {getInitials(data.name)}
                 </div>
               )}
-              <div className="overflow-hidden mb-1">
-                <h3 className="font-bold text-xl leading-tight truncate pr-2 text-black dark:text-white">
+              <div className="overflow-hidden mb-1 flex-1">
+                <h3 className="font-bold text-lg md:text-xl leading-tight truncate pr-2 text-black dark:text-white">
                   {data.name}
                 </h3>
                 <div className="flex items-center gap-2 mt-0.5">
@@ -78,31 +78,32 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
           </div>
 
           {/* Stats Grid */}
+          {/* Stats Grid */}
           <div className="grid grid-cols-4 gap-2 mb-4 py-3 border-y border-gray-50 dark:border-[#222] group-hover:border-gray-200 dark:group-hover:border-[#444] transition-colors items-center">
-            <div>
-              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1">Seguidores</p>
-              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white">{data.followerCount}</p>
+            <div className="flex flex-col overflow-hidden">
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Seguidores</p>
+              <p className="text-xs md:text-sm font-bold font-mono text-gray-900 dark:text-white truncate">{data.followerCount}</p>
             </div>
-            <div>
-              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1">Views</p>
-              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white">
+            <div className="flex flex-col overflow-hidden">
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Views</p>
+              <p className="text-xs md:text-sm font-bold font-mono text-gray-900 dark:text-white truncate">
                 {typeof data.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : 'Oculto'}
               </p>
             </div>
-            <div>
-              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1">Curtidas</p>
-              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white">
+            <div className="flex flex-col overflow-hidden">
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Curtidas</p>
+              <p className="text-xs md:text-sm font-bold font-mono text-gray-900 dark:text-white truncate">
                 {typeof data.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : 'Oculto'}
               </p>
             </div>
 
-            <div className="flex flex-col items-center justify-center border-l border-gray-100 dark:border-[#333] pl-2">
-              <div className="flex flex-col items-center justify-center border-l border-gray-100 dark:border-[#333] pl-2">
-                <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1.5">Engaj.</p>
-                <div className="w-10 h-10 font-bold">
+            <div className="flex items-center justify-center border-l border-gray-100 dark:border-[#333] pl-2 overflow-hidden">
+              <div className="flex flex-col items-center justify-center w-full">
+                <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1.5 truncate">Engaj.</p>
+                <div className="w-8 h-8 font-bold">
                   {(() => {
                     if (!data.engagementRate) {
-                      return <p className="text-sm font-bold font-mono text-gray-900 dark:text-white mt-2">Oculto</p>;
+                      return <p className="text-xs font-bold font-mono text-gray-900 dark:text-white mt-1">Oculto</p>;
                     }
 
                     // Sanitiza a string (ex: "2.20%" -> 2.20)
@@ -113,7 +114,7 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
                       <CircularProgressbar
                         value={rateValue}
                         text={`${rateValue}%`}
-                        strokeWidth={10}
+                        strokeWidth={12}
                         styles={buildStyles({
                           textSize: '28px',
                           pathColor: rateValue >= 5 ? '#10B981' : rateValue >= 2 ? '#3B82F6' : '#6B7280',
@@ -126,33 +127,33 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Text Content */}
-            <div>
-              {data.location && (
-                <div className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wide">
-                  <MapPin size={10} />
-                  {data.location}
-                </div>
-              )}
-
-              <div className="mb-4">
-                <h4 className="text-[10px] font-bold text-gray-900 dark:text-gray-300 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-                  Bio Original
-                </h4>
-                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed font-mono bg-gray-50 dark:bg-[#1A1A1A] p-2 border border-gray-100 dark:border-[#2A2A2A] rounded-sm whitespace-pre-wrap line-clamp-4">
-                  {data.originalBio || 'Sem biografia.'}
-                </p>
+          {/* Text Content OUTSIDE THE GRID */}
+          <div>
+            {data.location && (
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wide">
+                <MapPin size={10} />
+                {data.location}
               </div>
+            )}
 
-              <div>
-                <h4 className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-                  Análise IA
-                </h4>
-                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
-                  {data.summary}
-                </p>
-              </div>
+            <div className="mb-4">
+              <h4 className="text-[10px] font-bold text-gray-900 dark:text-gray-300 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                Bio Original
+              </h4>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed font-mono bg-gray-50 dark:bg-[#1A1A1A] p-2 border border-gray-100 dark:border-[#2A2A2A] rounded-sm whitespace-pre-wrap line-clamp-3">
+                {data.originalBio || 'Sem biografia.'}
+              </p>
+            </div>
+
+            <div className="mb-4">
+              <h4 className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                Análise IA
+              </h4>
+              <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed line-clamp-3">
+                {data.summary}
+              </p>
             </div>
           </div>
 
