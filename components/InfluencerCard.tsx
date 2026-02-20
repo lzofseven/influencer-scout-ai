@@ -97,34 +97,35 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
               </p>
             </div>
 
-            <div className="flex items-center justify-center border-l border-gray-100 dark:border-[#333] pl-2 overflow-hidden">
-              <div className="flex flex-col items-center justify-center w-full">
-                <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1.5 truncate">Engaj.</p>
-                <div className="w-8 h-8 font-bold">
-                  {(() => {
-                    if (!data.engagementRate) {
-                      return <p className="text-xs font-bold font-mono text-gray-900 dark:text-white mt-1">Oculto</p>;
-                    }
+            <div className="flex flex-col overflow-hidden border-l border-gray-100 dark:border-[#333] pl-2">
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Engaj.</p>
+              <div className="w-8 h-8 font-bold mt-0.5">
+                {(() => {
+                  if (!data.engagementRate) {
+                    return <p className="text-xs font-bold font-mono text-gray-900 dark:text-white mt-0.5">Oculto</p>;
+                  }
 
-                    // Sanitiza a string (ex: "2.20%" -> 2.20)
-                    const cleanRate = data.engagementRate.toString().replace(/[^0-9.]/g, '');
-                    const rateValue = parseFloat(cleanRate) || 0;
+                  // Sanitiza a string (ex: "2.20%" -> 2.20)
+                  const cleanRate = data.engagementRate.toString().replace(/[^0-9.]/g, '');
+                  const rateValue = parseFloat(cleanRate) || 0;
 
-                    return (
-                      <CircularProgressbar
-                        value={rateValue}
-                        text={`${rateValue}%`}
-                        strokeWidth={12}
-                        styles={buildStyles({
-                          textSize: '28px',
-                          pathColor: rateValue >= 5 ? '#10B981' : rateValue >= 2 ? '#3B82F6' : '#6B7280',
-                          textColor: 'currentColor',
-                          trailColor: 'rgba(156, 163, 175, 0.2)', // Adapts better to dark/light
-                        })}
-                      />
-                    );
-                  })()}
-                </div>
+                  // Formata com no máximo 1 casa decimal para caber certinho no círculo pequeno (ex: 29.7 em vez de 29.71)
+                  const displayValue = rateValue >= 10 ? rateValue.toFixed(0) : rateValue.toFixed(1);
+
+                  return (
+                    <CircularProgressbar
+                      value={rateValue}
+                      text={`${displayValue}%`}
+                      strokeWidth={12}
+                      styles={buildStyles({
+                        textSize: '26px', // Tamanho reduzido para não transbordar
+                        pathColor: rateValue >= 5 ? '#10B981' : rateValue >= 2 ? '#3B82F6' : '#6B7280',
+                        textColor: 'currentColor',
+                        trailColor: 'rgba(156, 163, 175, 0.2)', // Adapts better to dark/light
+                      })}
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>
