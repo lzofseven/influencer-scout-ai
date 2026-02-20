@@ -90,23 +90,25 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         }));
       }
 
-      // Kimi gera handles em paralelo
-      const handlesPrompt = `O sistema PRECISA de perfis reais do Instagram focados em: "${currentQuery}". Retorne ESTRITAMENTE um array JSON com 50 handles sem @.`;
-      promises.push(fetch("/api/nvidia/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
-      }).then(async (res) => {
-        if (res.ok) {
-          const json = await res.json();
-          let text = json.choices?.[0]?.message?.content || "[]";
-          text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const kimiHandles = JSON.parse(text);
-          if (Array.isArray(kimiHandles)) {
-            kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+      // Kimi gera handles em paralelo APENAS se tivermos poucos handles
+      if (allHandles.size < 20) {
+        const handlesPrompt = `O sistema PRECISA de perfis reais do Instagram focados em: "${currentQuery}". Retorne ESTRITAMENTE um array JSON com 50 handles sem @.`;
+        promises.push(fetch("/api/nvidia/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
+        }).then(async (res) => {
+          if (res.ok) {
+            const json = await res.json();
+            let text = json.choices?.[0]?.message?.content || "[]";
+            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const kimiHandles = JSON.parse(text);
+            if (Array.isArray(kimiHandles)) {
+              kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+            }
           }
-        }
-      }).catch(() => { }));
+        }).catch(() => { }));
+      }
 
       await Promise.all(promises);
     };
@@ -175,7 +177,7 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
 
     console.log(`Enviando ${simplifiedProfilesForLLM.length} perfis reais para o Kimi resumir EM PARALELO...`);
 
-    const LLM_CHUNK_SIZE = 5;
+    const LLM_CHUNK_SIZE = 15; // Aumentado para 15 para fazer apenas 1 request total
     const llmPromises = [];
     let influencers: Influencer[] = [];
 
