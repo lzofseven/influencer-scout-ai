@@ -9,6 +9,20 @@ const searchCache = new LRUCache<string, { influencers: Influencer[], groundingU
 
 const NVIDIA_API_KEY = "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";
 
+// Utilitário de Circuit Breaker (Timeout) para APIs externas lentas
+const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs: number = 2500) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+};
+
 export const searchInfluencers = async (
   query: string,
   onProgress?: (msg: string, current: number, target: number) => void,
@@ -91,25 +105,23 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         }));
       }
 
-      // Kimi gera handles em paralelo (Apenas se DuckDuckGo falhar em dar massa crítica)
-      if (allHandles.size < 15) {
-        const handlesPrompt = `Retorne um array JSON com 50 handles de Instagram sobre "${currentQuery}". Somente o JSON sem texto.`;
-        promises.push(fetch("/api/nvidia/v1/chat/completions", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
-        }).then(async (res) => {
-          if (res.ok) {
-            const json = await res.json();
-            let text = json.choices?.[0]?.message?.content || "[]";
-            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-            const kimiHandles = JSON.parse(text);
-            if (Array.isArray(kimiHandles)) {
-              kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
-            }
+      // Kimi gera handles em paralelo SEMPRE (Oversampling Garantido no T=0)
+      const handlesPrompt = `Retorne um array JSON com 50 handles de Instagram sobre "${currentQuery}". Somente o JSON.`;
+      promises.push(fetch("/api/nvidia/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
+      }).then(async (res) => {
+        if (res.ok) {
+          const json = await res.json();
+          let text = json.choices?.[0]?.message?.content || "[]";
+          text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+          const kimiHandles = JSON.parse(text);
+          if (Array.isArray(kimiHandles)) {
+            kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
           }
-        }).catch(() => { }));
-      }
+        }
+      }).catch(() => { }));
 
       // Aguarda no máximo 6s por esta rodada de descoberta
       await Promise.race([
@@ -139,12 +151,13 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
       );
 
-      // Validação massiva (chunks pequenos para liberar o event loop e emitir parciais mais rápido)
-      const validationChunk = unprocessedHandles.slice(0, 40);
+      // Validação massiva e agressiva (chunks gigantes + Circuit Breaker)
+      const validationChunk = unprocessedHandles.slice(0, 80);
       await Promise.all(validationChunk.map(async (h) => {
         if (validProfiles.length >= TARGET_PROFILES || Date.now() - startTime > HARD_TIMEOUT) return;
         try {
-          const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
+          // Usa o Circuit Breaker de 2.5s por arroba para não travar a lista
+          const instaRes = await fetchWithTimeout(`https://insta-api-lz.pages.dev/api?username=${h}`, {}, 2500);
           if (instaRes.ok) {
             const profileData = await instaRes.json();
             const followers = profileData?.user_info?.follower_count || 0;
