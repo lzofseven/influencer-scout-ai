@@ -51,33 +51,36 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
     const groundingUrls: string[] = [];
     let searchRound = 0; 
     let currentMinFollowers = minFollowers;
-    const MAX_ROUNDS = 15;
+    const MAX_ROUNDS = 5; // Reduced from 15 to 5 to prevent infinite hanging when API is blocking
+    let apiConsecutiveErrors = 0; // Track 401s or timeouts to abort early
 
     console.log(`Buscando "${cleanedQuery}" com minFollowers >= ${currentMinFollowers}. Alvo: ${TARGET_PROFILES}`);
 
-    // Loop contínuo FORÇADO até encontrar exatamente 15 válidos, limitando a 15 rodadas
-    while (validProfiles.length < TARGET_PROFILES && searchRound < MAX_ROUNDS) {
+    // Loop contínuo FORÇADO até encontrar exatamente 15 válidos, limitando a 5 rodadas rápidas
+    while (validProfiles.length < TARGET_PROFILES && searchRound < MAX_ROUNDS && apiConsecutiveErrors < 30) {
       
-      // A cada 3 rodadas sem sucesso total, relaxamos a exigência de seguidores pela metade
-      if (searchRound > 0 && searchRound % 3 === 0) {
-        currentMinFollowers = Math.max(1000, Math.floor(currentMinFollowers / 2));
+      // A cada 2 rodadas sem sucesso total, relaxamos a exigência de seguidores drasticamente
+      if (searchRound > 0 && searchRound % 2 === 0) {
+        currentMinFollowers = Math.max(1000, Math.floor(currentMinFollowers / 3)); // Drop faster
         console.log(`Dificuldade alta. Reduzindo filtro para: ${currentMinFollowers} seguidores`);
         if (onProgress) onProgress(`Relaxando filtro para ${currentMinFollowers} seg...`, validProfiles.length, TARGET_PROFILES);
       }
 
-      // DDG só é usado nas primeiras rodadas, depois Kimi assume 100% pra evitar bloqueios do Google
-      if (searchRound < 4) {
+      // DDG só é usado nas primeiras rodadas, depois Kimi assume pra evitar bloqueios do Google
+      if (searchRound < 2) {
         const duckQueries = [
-          `site:instagram.com ${cleanedQuery} ${searchRound > 0 ? "influenciador" : ""}`,
-          `site:instagram.com "criador de conteúdo" ${cleanedQuery} ${searchRound > 1 ? "oficial" : ""}`,
-          `melhores influenciadores de ${cleanedQuery} instagram ${searchRound > 0 ? "lista" : ""}`,
-          `site:instagram.com "${cleanedQuery}" ${searchRound > 2 ? "contato" : ""}`,
-          `site:instagram.com "k seguidores" ${cleanedQuery} ${searchRound > 2 ? "brasil" : ""}`
+          `site:instagram.com ${cleanedQuery} influenciador`,
+          `site:instagram.com "criador de conteúdo" ${cleanedQuery}`,
+          `site:instagram.com "k seguidores" ${cleanedQuery} brasil`
         ];
 
+        // Fetch in parallel with 5s timeout
         await Promise.all(duckQueries.map(async (sq) => {
           try {
-            const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`);
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 5000);
+            const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`, { signal: controller.signal });
+            clearTimeout(id);
             if (!searchRes.ok) return;
             const htmlText = await searchRes.text();
             const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
@@ -98,15 +101,13 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
       );
 
-      // Se DDG falhou ou esgotou (poucos handles pra testar), Kimi FORÇA a criação de arrobas reais repetidamente
-      if (unprocessedHandles.length < 15) {
+      // Se DDG falhou, invoca o Kimi UMA VEZ pedindo um lote grande, ao invés de várias vezes pequenas
+      if (unprocessedHandles.length < 15 && searchRound < 3) {
          console.log("Kimi invocado para INJETAR force handles...");
          if (onProgress) onProgress(`IA gerando novos perfis de ${cleanedQuery}...`, validProfiles.length, TARGET_PROFILES);
          
-         const alreadyExplored = Array.from(allHandles).slice(-50).join(', ');
          const handlesPrompt = `O sistema PRECISA de influenciadores reais focados no assunto: "${cleanedQuery}". 
-         Retorne ESTRITAMENTE um array JSON puro com 45 handles reais e famosos do Instagram sem @.
-         IMPORTANTE: Não repita NENHUM destes nomes: ${alreadyExplored}`;
+         Retorne ESTRITAMENTE um array JSON puro com 50 handles reais e famosos do Instagram sem @.`;
          
          try {
            const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
@@ -127,23 +128,27 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
            console.error("Kimi handle generation failed", e);
          }
 
-         // Re-calculamos logo em seguida
          unprocessedHandles = Array.from(allHandles).filter(
             h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
          );
       }
       
-      // Validação massiva em lotes 
-      const CHUNK_SIZE = 25; 
+      // Validação massiva em lotes menores para não tomar 401 tão rápido
+      const CHUNK_SIZE = 15; 
       for (let i = 0; i < unprocessedHandles.length; i += CHUNK_SIZE) {
-        if (validProfiles.length >= TARGET_PROFILES) break;
+        if (validProfiles.length >= TARGET_PROFILES || apiConsecutiveErrors >= 30) break;
         
         const chunk = unprocessedHandles.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk.map(async (h) => {
-          if (validProfiles.length >= TARGET_PROFILES) return;
+          if (validProfiles.length >= TARGET_PROFILES || apiConsecutiveErrors >= 30) return;
           try {
-            const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 8000); // 8s timeout for API
+            const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`, { signal: controller.signal });
+            clearTimeout(id);
+
             if (instaRes.ok) {
+              apiConsecutiveErrors = 0; // Reset error counter on success
               const profileData = await instaRes.json();
               
               const followers = profileData?.user_info?.follower_count || 0;
@@ -160,9 +165,12 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
                   }
                 }
               }
+            } else {
+               apiConsecutiveErrors++;
             }
           } catch (e) {
-            // Conta inexistente ou bloqueada
+             apiConsecutiveErrors++;
+            // Conta inexistente, bloqueada ou timeout
           }
         }));
       }
@@ -170,13 +178,20 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
       searchRound++;
     }
 
-    // Fallback de emergência (raro agora)
     if (validProfiles.length === 0) {
       console.warn("Nenhum perfil válido ou aberto encontrado na API com os requisitos exigidos.");
       return { influencers: [], groundingUrls: [] };
     }
 
+    // Se saiu do loop por causa de 401 excessivos, avisa, mas entrega o que achou
+    if (apiConsecutiveErrors >= 30 && validProfiles.length < TARGET_PROFILES) {
+        console.warn(`Busca abortada precocemente devido a bloqueios na API. Retornando ${validProfiles.length} resultados.`);
+        if (onProgress) onProgress(`API Rate Limit. Gerando os ${validProfiles.length} encontrados...`, validProfiles.length, TARGET_PROFILES);
+    }
+
     // 3. IA analisa os perfis válidos OBTIDOS REAIS. 
+ 
+ 
     // Para nã estourar o limite de Contexto da IA (e economizar dinheiro), simplificamos o objeto enviado.
     const simplifiedProfilesForLLM = validProfiles.map(p => ({
       username: p.user_info.username,
