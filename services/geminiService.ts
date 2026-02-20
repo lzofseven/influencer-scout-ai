@@ -25,20 +25,31 @@ const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs: numbe
 
 export const searchInfluencers = async (
   query: string,
+  userTier: string = 'free',
   onProgress?: (msg: string, current: number, target: number) => void,
   onInfluencerReady?: (influencer: Influencer) => void
 ): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
+  // Ajuste do TARGET com base no Plano do Usuário (Sincronização com Backend)
+  let TARGET_PROFILES = 15; // default fallback
+  if (userTier === 'Starter') TARGET_PROFILES = 20;
+  if (userTier === 'Scale') TARGET_PROFILES = 50;
+  // Free tier maintains 15 (or less if we want to limit free usage further)
+
   // 0. Cache Check Imediato
   const normalizedQuery = query.toLowerCase().trim();
   if (searchCache.has(normalizedQuery)) {
     console.log(`📦 DELIVERING FROM CACHE: ${normalizedQuery}`);
-    if (onProgress) onProgress(`Recuperando cache super-rápido para "${normalizedQuery}"...`, 15, 15);
+    if (onProgress) onProgress(`Recuperando cache super-rápido para "${normalizedQuery}"...`, TARGET_PROFILES, TARGET_PROFILES);
     // Simula um delay minimo para UI não piscar brutalmente
     await new Promise(r => setTimeout(r, 800));
-    return searchCache.get(normalizedQuery)!;
+    const cachedData = searchCache.get(normalizedQuery)!;
+    // Cap results based on tier if cached results > tier allowance
+    return {
+      influencers: cachedData.influencers.slice(0, TARGET_PROFILES),
+      groundingUrls: cachedData.groundingUrls
+    };
   }
   try {
-    const TARGET_PROFILES = 15;
     const startTime = Date.now();
     const HARD_TIMEOUT = 18000; // 18 segundos de limite rígido para GARANTIR < 20s
 
