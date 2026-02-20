@@ -125,17 +125,23 @@ export const searchInfluencers = async (query: string): Promise<{ influencers: I
       category: p.user_info.category,
       biography: p.user_info.biography,
       follower_count: p.user_info.follower_count,
-      // Apenas os últimos 5 posts (legendas) para ele entender o nicho
-      recent_captions: p.posts?.slice(0, 5).map((post: any) => post.caption?.substring(0, 200) || "")
+      // Reduzimos as legendas para 3 e o tamanho da string para ser extremamente rapido no processamento paralelo
+      recent_captions: p.posts?.slice(0, 3).map((post: any) => post.caption?.substring(0, 150) || "")
     }));
 
-    console.log(`Enviando ${simplifiedProfilesForLLM.length} perfis reais para o Kimi resumir...`);
+    console.log(`Enviando ${simplifiedProfilesForLLM.length} perfis reais para o Kimi resumir EM PARALELO...`);
 
-    const analysisPrompt = `Abaixo estão os dados RESUMIDOS da NOSSA API OFICIAL para ${simplifiedProfilesForLLM.length} influenciadores.
+    const LLM_CHUNK_SIZE = 5;
+    const llmPromises = [];
+
+    for (let i = 0; i < simplifiedProfilesForLLM.length; i += LLM_CHUNK_SIZE) {
+      const chunk = simplifiedProfilesForLLM.slice(i, i + LLM_CHUNK_SIZE);
+
+      const analysisPrompt = `Abaixo estão os dados RESUMIDOS da NOSSA API OFICIAL para ${chunk.length} influenciadores.
 
 DADOS JSON:
 ---
-${JSON.stringify(simplifiedProfilesForLLM)}
+${JSON.stringify(chunk)}
 ---
 
 Sua Tarefa: Transforme e embeleze os dados acima para exibição no frontend.
@@ -156,30 +162,42 @@ Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON com as chaves:
 
 LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
 
-    const finalRes = await fetch("/api/nvidia/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${NVIDIA_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "moonshotai/kimi-k2.5",
-        messages: [{ role: "user", content: analysisPrompt }],
-        max_tokens: 16000,
-        temperature: 0.1,
-        chat_template_kwargs: { "thinking": false }
-      })
-    });
+      llmPromises.push(
+        fetch("/api/nvidia/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${NVIDIA_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "moonshotai/kimi-k2.5",
+            messages: [{ role: "user", content: analysisPrompt }],
+            max_tokens: 4096, // Menor pois são apenas 5 por vez
+            temperature: 0.1,
+            chat_template_kwargs: { "thinking": false }
+          })
+        }).then(async (res) => {
+          if (!res.ok) return [];
+          const json = await res.json();
+          let text = json.choices?.[0]?.message?.content || "[]";
+          text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+          try {
+            return JSON.parse(text);
+          } catch (e) {
+            return [];
+          }
+        }).catch(() => [])
+      );
+    }
 
-    if (!finalRes.ok) throw new Error(`Kimi Analysis Error: ${finalRes.statusText}`);
-    const finalJson = await finalRes.json();
-    let finalOut = finalJson.choices?.[0]?.message?.content || "[]";
-    finalOut = finalOut.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // Aguarda todas as chamadas paralelas da IA terminarem de forma rapidíssima
+    const chunkResults = await Promise.all(llmPromises);
+
+    // Achatar o array de arrays de 5 influenciadores em um único array plano de ~20 influenciadores
+    const parsedArray = chunkResults.flat();
 
     let influencers: Influencer[] = [];
     try {
-      const parsedArray: Influencer[] = JSON.parse(finalOut);
-
       // 4. Último Merge: Junta os textos bonitos do LLM com os números FECHADOS e IMAGENS da nossa API oficial.
       influencers = parsedArray.map(inf => {
         const infClean = inf.handle.replace('@', '').toLowerCase().trim();
@@ -210,7 +228,7 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
       });
 
     } catch (e) {
-      console.error("Parse failed for Kimi final output", finalOut);
+      console.error("Parse failed for Kimi final output array mapping", e);
     }
 
     return { influencers, groundingUrls: Array.from(new Set(groundingUrls)) };
