@@ -25,6 +25,8 @@ export const searchInfluencers = async (
   }
   try {
     const TARGET_PROFILES = 15;
+    const startTime = Date.now();
+    const HARD_TIMEOUT = 18000; // 18 segundos de limite rígido para GARANTIR < 20s
 
     // 1. Decodificar a Intenção do Usuário (Nicho + Seguidores Dinâmicos) e Iniciar Buscas em Paralelo
     const intentPrompt = `O usuário digitou: "${query}".
@@ -67,12 +69,11 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
     const discoverHandles = async (currentQuery: string, round: number) => {
       const promises = [];
 
-      // DuckDuckGo em paralelo
+      // DuckDuckGo em paralelo (Limitado a 2 para velocidade)
       if (round < 2) {
         const duckQueries = [
           `site:instagram.com ${currentQuery}`,
-          `site:instagram.com "criador de conteúdo" ${currentQuery}`,
-          `melhores influenciadores de ${currentQuery} instagram`
+          `site:instagram.com "criador de conteúdo" ${currentQuery}`
         ];
         promises.push(...duckQueries.map(async (sq) => {
           try {
@@ -90,9 +91,9 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         }));
       }
 
-      // Kimi gera handles em paralelo APENAS se tivermos poucos handles
-      if (allHandles.size < 20) {
-        const handlesPrompt = `O sistema PRECISA de perfis reais do Instagram focados em: "${currentQuery}". Retorne ESTRITAMENTE um array JSON com 50 handles sem @.`;
+      // Kimi gera handles em paralelo (Apenas se DuckDuckGo falhar em dar massa crítica)
+      if (allHandles.size < 15) {
+        const handlesPrompt = `Retorne um array JSON com 50 handles de Instagram sobre "${currentQuery}". Somente o JSON sem texto.`;
         promises.push(fetch("/api/nvidia/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
@@ -110,7 +111,11 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
         }).catch(() => { }));
       }
 
-      await Promise.all(promises);
+      // Aguarda no máximo 6s por esta rodada de descoberta
+      await Promise.race([
+        Promise.all(promises),
+        new Promise(r => setTimeout(r, 6000))
+      ]);
     };
 
     // Aguarda apenas a primeira descoberta rápida
@@ -124,50 +129,50 @@ Retorne EXATAMENTE UM JSON com as duas propriedades:
     console.log(`Buscando "${cleanedQuery}" com minFollowers >= ${minFollowers}.`);
 
     while (validProfiles.length < TARGET_PROFILES && searchRound < MAX_ROUNDS) {
+      // Check hard timeout
+      if (Date.now() - startTime > HARD_TIMEOUT) {
+        console.warn("Hard timeout reached during profile validation. Returning partial results.");
+        break;
+      }
+
       const unprocessedHandles = Array.from(allHandles).filter(
         h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
       );
 
-      // Validação massiva em paralelo total
-      const validationPromises = unprocessedHandles.slice(0, 60).map(async (h) => {
-        if (validProfiles.length >= TARGET_PROFILES) return;
+      // Validação massiva (chunks pequenos para liberar o event loop e emitir parciais mais rápido)
+      const validationChunk = unprocessedHandles.slice(0, 40);
+      await Promise.all(validationChunk.map(async (h) => {
+        if (validProfiles.length >= TARGET_PROFILES || Date.now() - startTime > HARD_TIMEOUT) return;
         try {
           const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
           if (instaRes.ok) {
             const profileData = await instaRes.json();
             const followers = profileData?.user_info?.follower_count || 0;
-            if (profileData?.user_info?.username && followers >= (searchRound > 1 ? 1000 : minFollowers)) {
-              if (!validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
-                if (validProfiles.length < TARGET_PROFILES) {
-                  validProfiles.push(profileData);
-                  groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
+            if (profileData?.user_info?.username && followers >= (searchRound > 1 ? 500 : minFollowers)) {
+              if (validProfiles.length < TARGET_PROFILES && !validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
+                validProfiles.push(profileData);
+                groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
 
-                  // EMITIR PARCIAL IMEDIATAMENTE PARA SPEED > 20s FEELING
-                  const partial: Influencer = {
-                    name: profileData.user_info.full_name || profileData.user_info.username,
-                    handle: "@" + profileData.user_info.username,
-                    platform: "Instagram",
-                    followerCount: Intl.NumberFormat('en-US', { notation: "compact" }).format(followers),
-                    engagementRate: profileData.metrics?.total_loaded?.engagement || "Calculando...",
-                    bioUrl: `https://instagram.com/${profileData.user_info.username}`,
-                    summary: "Analisando perfil com IA...",
-                    topics: [profileData.user_info.category || "Influenciador"],
-                    location: "Brasil",
-                    profilePicUrl: profileData.user_info.profile_pic_url,
-                    sourceUrl: `https://instagram.com/${profileData.user_info.username}`,
-                    originalBio: profileData.user_info.biography
-                  };
-                  if (onInfluencerReady) onInfluencerReady(partial);
-
-                  if (onProgress) onProgress(`Encontrado ${validProfiles.length}/${TARGET_PROFILES}...`, validProfiles.length, TARGET_PROFILES);
-                }
+                const partial: Influencer = {
+                  name: profileData.user_info.full_name || profileData.user_info.username,
+                  handle: "@" + profileData.user_info.username,
+                  platform: "Instagram",
+                  followerCount: Intl.NumberFormat('en-US', { notation: "compact" }).format(followers),
+                  engagementRate: profileData.metrics?.total_loaded?.engagement || "Calculando...",
+                  bioUrl: `https://instagram.com/${profileData.user_info.username}`,
+                  summary: "Analisando perfil com IA...",
+                  topics: [profileData.user_info.category || "Influenciador"],
+                  location: "Brasil",
+                  profilePicUrl: profileData.user_info.profile_pic_url,
+                  sourceUrl: `https://instagram.com/${profileData.user_info.username}`,
+                  originalBio: profileData.user_info.biography
+                };
+                if (onInfluencerReady) onInfluencerReady(partial);
               }
             }
           }
         } catch (e) { }
-      });
-
-      await Promise.all(validationPromises);
+      }));
 
       if (validProfiles.length < TARGET_PROFILES) {
         searchRound++;
