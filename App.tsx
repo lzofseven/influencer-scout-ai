@@ -5,6 +5,7 @@ import LandingPage from './src/pages/LandingPage';
 import Login from './src/pages/Login';
 import Pricing from './src/pages/Pricing';
 import Dashboard from './src/pages/Dashboard';
+import AdminDashboard from './src/pages/Admin';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -29,6 +30,14 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Login />} />
           <Route path="/planos" element={<Pricing />} />
+
+          {/* Rota Privada: Admin */}
+          <Route
+            path="/admin"
+            element={<AdminDashboard />}
+          />
+
+          {/* Rotas Privadas */}
           <Route
             path="/dashboard"
             element={
