@@ -97,7 +97,13 @@ export const searchInfluencers = async (query: string): Promise<{ influencers: I
           const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
           if (instaRes.ok) {
             const profileData = await instaRes.json();
-            if (profileData && profileData.user_info && profileData.user_info.username) {
+
+            // Filtro Super Rigoroso: Só valida como "Influenciador Real" se tiver mais de 10.000 seguidores
+            // Isso evita varrer usuários normais que coincidentemente tenham as palavras-chave na bio
+            const followers = profileData?.user_info?.follower_count || 0;
+            const isMinimalInfluencer = followers >= 10000;
+
+            if (profileData && profileData.user_info && profileData.user_info.username && isMinimalInfluencer) {
               // Verifica se já não inserimos um igual (devido ao paralelismo)
               if (!validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
                 if (validProfiles.length < TARGET_PROFILES) {
