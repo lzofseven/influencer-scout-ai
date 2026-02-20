@@ -105,9 +105,24 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
               {data.location}
             </div>
           )}
-          <p className="text-xs text-gray-600 leading-relaxed mb-4 line-clamp-3">
-            {data.summary}
-          </p>
+
+          <div className="mb-4">
+            <h4 className="text-[10px] font-bold text-gray-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+              Bio Original
+            </h4>
+            <p className="text-xs text-gray-600 leading-relaxed font-mono bg-gray-50 p-2 border border-gray-100 rounded-sm whitespace-pre-wrap line-clamp-4">
+              {data.originalBio || 'Sem biografia.'}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+              Análise IA
+            </h4>
+            <p className="text-xs text-gray-600 leading-relaxed mb-4">
+              {data.summary}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -121,7 +136,7 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
           ))}
         </div>
 
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-2">
           {data.sourceUrl ? (
             <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[9px] text-gray-400 hover:text-blue-600 transition-colors truncate max-w-[150px]">
               <Search size={10} />
@@ -138,9 +153,9 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
             href={profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-black hover:underline"
+            className="flex flex-1 justify-end items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 hover:underline"
           >
-            Ver <ArrowRightIcon className="w-3 h-3" />
+            Acessar Perfil <ArrowRightIcon className="w-3.5 h-3.5" />
           </a>
         </div>
       </div>

@@ -16,6 +16,7 @@ export interface Influencer {
   comments_count?: number;
   lastPostImageUrl?: string;
   category?: string;
+  originalBio?: string;
 }
 
 export interface SearchState {
