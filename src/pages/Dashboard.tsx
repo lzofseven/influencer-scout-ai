@@ -171,20 +171,11 @@ const App: React.FC = () => {
       setStatus(SearchStatus.COMPLETED);
       setProgressText(null);
 
-      // Subtrai crédito após busca bem-sucedida e salva no Histórico
+      // Credit deduction and History saving is now strictly handled by our SECURE Node.js BACKEND Server.
       if (user) {
         try {
-          const userRef = doc(db, 'users', user.uid);
-          await updateDoc(userRef, { credits: increment(-1) });
+          // Apenas atualiza o saldo na UI, pois o Backend já removeu do Firestore Oficial
           await refreshCredits();
-
-          // Salva histórico
-          await addDoc(collection(db, 'users', user.uid, 'searchHistory'), {
-            query: queryStr, // changed from query to avoid conflict
-            resultsCount: data.influencers.length,
-            createdAt: new Date(),
-            results: data.influencers
-          });
         } catch (err) {
           console.error("Erro sincronizando DB", err);
         }
