@@ -1,5 +1,7 @@
 import React from 'react';
 import { Influencer } from '../types';
+import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
+import 'react-circular-progressbar/dist/styles.css';
 import { ExternalLink, MapPin, Search, ArrowRight } from 'lucide-react';
 
 interface InfluencerCardProps {
@@ -17,146 +19,176 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
 
   return (
     <div
-      style={style}
-      className={`group relative flex flex-col h-full bg-white border border-gray-200 hover:border-black hover:-translate-y-1 hover:shadow-2xl transition-all duration-300 p-0 overflow-hidden ${className || ''}`}
+      style={{ perspective: '1000px', ...style }}
+      className={`group relative flex flex-col h-full p-0 overflow-visible ${className || ''}`}
     >
-      {/* Banner Section */}
-      <div className="relative h-32 w-full overflow-hidden bg-gray-100">
-        {data.lastPostImageUrl ? (
-          <img
-            src={data.lastPostImageUrl}
-            alt="Last Post Banner"
-            className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200"></div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-transparent to-transparent"></div>
-      </div>
+      <div className="relative flex flex-col h-full bg-white dark:bg-[#111111] border border-gray-200 dark:border-[#333] transition-all duration-500 transform-gpu group-hover:scale-[1.02] group-hover:-translate-y-2 group-hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:group-hover:shadow-[0_20px_40px_rgba(255,255,255,0.05)] overflow-hidden">
 
-      {/* Profile & Header Section */}
-      <div className="px-6 -mt-8 relative z-10">
-        <div className="flex items-end justify-between mb-4 border-b border-gray-50 pb-5">
-          <div className="flex items-end gap-4">
-            {data.profilePicUrl ? (
-              <img
-                src={data.profilePicUrl}
-                alt={data.name}
-                className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg bg-white"
-              />
-            ) : (
-              <div className="w-20 h-20 bg-gray-50 flex items-center justify-center text-black font-bold text-2xl tracking-wider border-4 border-white shadow-lg group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
-                {getInitials(data.name)}
-              </div>
-            )}
-            <div className="overflow-hidden mb-1">
-              <h3 className="font-bold text-xl leading-tight truncate pr-2">
-                {data.name}
-              </h3>
-              <div className="flex items-center gap-2 mt-0.5">
-                <a
-                  href={profileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-gray-500 hover:text-black flex items-center gap-1 font-medium transition-colors"
-                >
-                  {data.handle}
-                  <ExternalLink size={12} />
-                </a>
-                {data.category && (
-                  <span className="text-[10px] bg-gray-50 px-1.5 py-0.5 rounded-sm text-gray-400 font-semibold uppercase tracking-tight border border-gray-100">
-                    {data.category}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-4 gap-2 mb-4 py-3 border-y border-gray-50 group-hover:border-gray-100 transition-colors">
-          <div>
-            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Seguidores</p>
-            <p className="text-sm font-bold font-mono text-gray-900">{data.followerCount}</p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Views</p>
-            <p className="text-sm font-bold font-mono text-gray-900">
-              {typeof data.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : 'Oculto'}
-            </p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Curtidas</p>
-            <p className="text-sm font-bold font-mono text-gray-900">
-              {typeof data.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : 'Oculto'}
-            </p>
-          </div>
-          <div>
-            <p className="text-[9px] uppercase tracking-widest text-gray-400 font-bold mb-1">Engaj.</p>
-            <p className="text-sm font-bold font-mono text-gray-900">{data.engagementRate || 'Oculto'}</p>
-          </div>
-        </div>
-
-        {/* Text Content */}
-        <div>
-          {data.location && (
-            <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mb-2 font-medium uppercase tracking-wide">
-              <MapPin size={10} />
-              {data.location}
-            </div>
-          )}
-
-          <div className="mb-4">
-            <h4 className="text-[10px] font-bold text-gray-900 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-              Bio Original
-            </h4>
-            <p className="text-xs text-gray-600 leading-relaxed font-mono bg-gray-50 p-2 border border-gray-100 rounded-sm whitespace-pre-wrap line-clamp-4">
-              {data.originalBio || 'Sem biografia.'}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1.5 flex items-center gap-1">
-              Análise IA
-            </h4>
-            <p className="text-xs text-gray-600 leading-relaxed mb-4">
-              {data.summary}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer / Tags */}
-      <div className="mt-auto p-6 pt-0">
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {data.topics.slice(0, 3).map((topic, idx) => (
-            <span key={idx} className="text-[9px] uppercase tracking-wide border border-gray-100 px-2 py-1 text-gray-600 bg-gray-50 rounded-sm">
-              {topic}
-            </span>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between pt-3 border-t border-gray-100 mt-2">
-          {data.sourceUrl ? (
-            <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[9px] text-gray-400 hover:text-blue-600 transition-colors truncate max-w-[150px]">
-              <Search size={10} />
-              <span className="truncate">Fonte Verificada</span>
-            </a>
+        {/* Banner Section */}
+        <div className="relative h-32 w-full overflow-hidden bg-gray-100 dark:bg-[#222]">
+          {data.lastPostImageUrl ? (
+            <img
+              src={data.lastPostImageUrl}
+              alt="Last Post Banner"
+              className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 group-hover:scale-110 transition-transform duration-700 ease-out"
+            />
           ) : (
-            <span className="text-[9px] text-gray-300 flex items-center gap-1.5">
-              <Search size={10} />
-              IA Search
-            </span>
+            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-[#222] dark:to-[#1a1a1a]"></div>
           )}
+          <div className="absolute inset-0 bg-gradient-to-t from-white/90 dark:from-[#111111]/90 via-transparent to-transparent"></div>
+        </div>
 
-          <a
-            href={profileUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-1 justify-end items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 hover:underline"
-          >
-            Acessar Perfil <ArrowRightIcon className="w-3.5 h-3.5" />
-          </a>
+        {/* Profile & Header Section */}
+        <div className="px-6 -mt-8 relative z-10">
+          <div className="flex items-end justify-between mb-4 border-b border-gray-50 dark:border-[#222] pb-5">
+            <div className="flex items-end gap-4">
+              {data.profilePicUrl ? (
+                <img
+                  src={data.profilePicUrl}
+                  alt={data.name}
+                  className="w-20 h-20 rounded-full object-cover border-4 border-white dark:border-[#111] shadow-lg bg-white dark:bg-[#111]"
+                />
+              ) : (
+                <div className="w-20 h-20 bg-gray-50 dark:bg-[#222] flex items-center justify-center text-black dark:text-white font-bold text-2xl tracking-wider border-4 border-white dark:border-[#111] shadow-lg group-hover:bg-black group-hover:text-white transition-colors duration-300 rounded-full">
+                  {getInitials(data.name)}
+                </div>
+              )}
+              <div className="overflow-hidden mb-1">
+                <h3 className="font-bold text-xl leading-tight truncate pr-2 text-black dark:text-white">
+                  {data.name}
+                </h3>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <a
+                    href={profileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1 font-medium transition-colors"
+                  >
+                    {data.handle}
+                    <ExternalLink size={12} />
+                  </a>
+                  {data.category && (
+                    <span className="text-[10px] bg-gray-50 dark:bg-[#222] px-1.5 py-0.5 rounded-sm text-gray-400 dark:text-gray-300 font-semibold uppercase tracking-tight border border-gray-100 dark:border-[#333]">
+                      {data.category}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-4 gap-2 mb-4 py-3 border-y border-gray-50 dark:border-[#222] group-hover:border-gray-200 dark:group-hover:border-[#444] transition-colors items-center">
+            <div>
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1">Seguidores</p>
+              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white">{data.followerCount}</p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1">Views</p>
+              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white">
+                {typeof data.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : 'Oculto'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1">Curtidas</p>
+              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white">
+                {typeof data.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : 'Oculto'}
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center justify-center border-l border-gray-100 dark:border-[#333] pl-2">
+              <div className="flex flex-col items-center justify-center border-l border-gray-100 dark:border-[#333] pl-2">
+                <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1.5">Engaj.</p>
+                <div className="w-10 h-10 font-bold">
+                  {(() => {
+                    if (!data.engagementRate) {
+                      return <p className="text-sm font-bold font-mono text-gray-900 dark:text-white mt-2">Oculto</p>;
+                    }
+
+                    // Sanitiza a string (ex: "2.20%" -> 2.20)
+                    const cleanRate = data.engagementRate.toString().replace(/[^0-9.]/g, '');
+                    const rateValue = parseFloat(cleanRate) || 0;
+
+                    return (
+                      <CircularProgressbar
+                        value={rateValue}
+                        text={`${rateValue}%`}
+                        strokeWidth={10}
+                        styles={buildStyles({
+                          textSize: '28px',
+                          pathColor: rateValue >= 5 ? '#10B981' : rateValue >= 2 ? '#3B82F6' : '#6B7280',
+                          textColor: 'currentColor',
+                          trailColor: 'rgba(156, 163, 175, 0.2)', // Adapts better to dark/light
+                        })}
+                      />
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Text Content */}
+            <div>
+              {data.location && (
+                <div className="flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500 mb-2 font-medium uppercase tracking-wide">
+                  <MapPin size={10} />
+                  {data.location}
+                </div>
+              )}
+
+              <div className="mb-4">
+                <h4 className="text-[10px] font-bold text-gray-900 dark:text-gray-300 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                  Bio Original
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed font-mono bg-gray-50 dark:bg-[#1A1A1A] p-2 border border-gray-100 dark:border-[#2A2A2A] rounded-sm whitespace-pre-wrap line-clamp-4">
+                  {data.originalBio || 'Sem biografia.'}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1.5 flex items-center gap-1">
+                  Análise IA
+                </h4>
+                <p className="text-xs text-gray-600 dark:text-gray-300 leading-relaxed mb-4">
+                  {data.summary}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer / Tags */}
+          <div className="mt-auto p-6 pt-0">
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {data.topics.slice(0, 3).map((topic, idx) => (
+                <span key={idx} className="text-[9px] uppercase tracking-wide border border-gray-100 dark:border-[#333] px-2 py-1 text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-[#222] rounded-sm">
+                  {topic}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-[#222] mt-2">
+              {data.sourceUrl ? (
+                <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-[9px] text-gray-400 hover:text-blue-600 transition-colors truncate max-w-[150px]">
+                  <Search size={10} />
+                  <span className="truncate">Fonte Verificada</span>
+                </a>
+              ) : (
+                <span className="text-[9px] text-gray-300 flex items-center gap-1.5">
+                  <Search size={10} />
+                  IA Search
+                </span>
+              )}
+
+              <a
+                href={profileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-1 justify-end items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Acessar Perfil <ArrowRightIcon className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -169,4 +201,4 @@ const ArrowRightIcon = ({ className }: { className?: string }) => (
     <line x1="5" y1="12" x2="19" y2="12"></line>
     <polyline points="12 5 19 12 12 19"></polyline>
   </svg>
-)
+);

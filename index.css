@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white text-black dark:bg-[#0A0A0A] dark:text-[#FAFAFA] antialiased transition-colors duration-500;
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(to right,
+        rgba(200, 200, 200, 0.2) 4%,
+        rgba(200, 200, 200, 0.4) 25%,
+        rgba(200, 200, 200, 0.2) 36%);
+    background-size: 1000px 100%;
+  }
+
+  .dark .animate-shimmer {
+    background: linear-gradient(to right,
+        rgba(50, 50, 50, 0.2) 4%,
+        rgba(80, 80, 80, 0.4) 25%,
+        rgba(50, 50, 50, 0.2) 36%);
+    background-size: 1000px 100%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Staggered animation delays for list items */
+.stagger-1 {
+  animation-delay: 100ms;
+}
+
+.stagger-2 {
+  animation-delay: 200ms;
+}
+
+.stagger-3 {
+  animation-delay: 300ms;
+}
+
+.stagger-4 {
+  animation-delay: 400ms;
+}
+
+.stagger-5 {
+  animation-delay: 500ms;
+}
+
+.stagger-6 {
+  animation-delay: 600ms;
+}

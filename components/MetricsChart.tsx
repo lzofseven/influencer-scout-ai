@@ -40,37 +40,37 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
   const maxValue = Math.max(...chartData.map(d => d.rawValue), 1);
 
   return (
-    <div className="w-full bg-white border border-gray-200 p-6 md:p-8 mb-12 animate-fade-in-up rounded-lg shadow-sm">
+    <div className="w-full bg-white dark:bg-[#111] border border-gray-200 dark:border-[#333] p-6 md:p-8 mb-12 animate-fade-in-up rounded-lg shadow-sm transition-colors duration-500">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900 flex items-center gap-2">
+          <h3 className="text-sm font-bold uppercase tracking-widest text-gray-900 dark:text-gray-100 flex items-center gap-2 transition-colors">
             <BarChart3 className="w-4 h-4" />
             Distribuição de Métricas
           </h3>
         </div>
 
-        <div className="flex bg-gray-50 p-1 rounded-md border border-gray-100 flex-wrap gap-1">
+        <div className="flex bg-gray-50 dark:bg-[#1a1a1a] p-1 rounded-md border border-gray-100 dark:border-[#2a2a2a] flex-wrap gap-1 transition-colors">
           <button
             onClick={() => setMetric('followers')}
-            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'followers' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-black'}`}
+            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'followers' ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white'}`}
           >
             Seguidores
           </button>
           <button
             onClick={() => setMetric('views')}
-            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'views' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-black'}`}
+            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'views' ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white'}`}
           >
             Views
           </button>
           <button
             onClick={() => setMetric('likes')}
-            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'likes' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-black'}`}
+            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'likes' ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white'}`}
           >
             Curtidas
           </button>
           <button
             onClick={() => setMetric('engagement')}
-            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'engagement' ? 'bg-black text-white shadow-sm' : 'text-gray-400 hover:text-black'}`}
+            className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all rounded ${metric === 'engagement' ? 'bg-black dark:bg-white text-white dark:text-black shadow-sm' : 'text-gray-400 dark:text-gray-500 hover:text-black dark:hover:text-white'}`}
           >
             Engajamento
           </button>
@@ -83,10 +83,10 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
 
           {/* Horizontal Grid Lines */}
           <div className="absolute inset-0 flex flex-col justify-between pointer-events-none z-0 opacity-50">
-            <div className="w-full border-t border-dashed border-gray-100 h-0"></div>
-            <div className="w-full border-t border-dashed border-gray-100 h-0"></div>
-            <div className="w-full border-t border-dashed border-gray-100 h-0"></div>
-            <div className="w-full border-t border-dashed border-gray-100 h-0"></div>
+            <div className="w-full border-t border-dashed border-gray-100 dark:border-[#333] h-0 transition-colors"></div>
+            <div className="w-full border-t border-dashed border-gray-100 dark:border-[#333] h-0 transition-colors"></div>
+            <div className="w-full border-t border-dashed border-gray-100 dark:border-[#333] h-0 transition-colors"></div>
+            <div className="w-full border-t border-dashed border-gray-100 dark:border-[#333] h-0 transition-colors"></div>
           </div>
 
           {chartData.map((item, idx) => {
@@ -96,30 +96,30 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
               <div key={idx} className="group relative flex-1 max-w-[48px] flex flex-col justify-end items-center h-full z-10 mx-auto">
 
                 {/* Custom Tooltip */}
-                <div className="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-20 bg-gray-900 text-white text-[10px] py-1.5 px-3 rounded shadow-xl whitespace-nowrap pointer-events-none">
+                <div className="absolute bottom-full mb-3 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 z-20 bg-gray-900 dark:bg-white text-white dark:text-black text-[10px] py-1.5 px-3 rounded shadow-xl whitespace-nowrap pointer-events-none">
                   <div className="font-bold tracking-wide">{item.name}</div>
-                  <div className="font-mono text-gray-300">
+                  <div className="font-mono text-gray-300 dark:text-gray-600">
                     {metric === 'followers' && item.followerCount}
                     {metric === 'engagement' && (item.engagementRate || '0.00%')}
                     {metric === 'views' && (typeof item.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(item.views_count) : 'Oculto')}
                     {metric === 'likes' && (typeof item.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(item.likes_count) : 'Oculto')}
                   </div>
                   {/* Arrow */}
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-white"></div>
                 </div>
 
                 {/* The Bar */}
                 <div
-                  className="w-full bg-gray-800 hover:bg-black transition-all duration-300 ease-out rounded-t-[2px] hover:shadow-lg relative overflow-hidden"
+                  className="w-full bg-gray-800 dark:bg-[#444] hover:bg-black dark:hover:bg-[#fafafa] transition-all duration-300 ease-out rounded-t-[2px] hover:shadow-lg relative overflow-hidden"
                   style={{ height: `${heightPercentage}%` }}
                 >
                   {/* Shine effect on hover */}
-                  <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-10 group-hover:animate-shine" />
+                  <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white dark:to-white opacity-10 dark:opacity-20 group-hover:animate-shine" />
                 </div>
 
                 {/* Label (Handle) */}
                 <div className="h-6 w-full mt-3 relative">
-                  <p className="absolute left-1/2 -translate-x-1/2 text-[9px] text-gray-400 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px] text-center group-hover:text-black group-hover:font-bold transition-colors">
+                  <p className="absolute left-1/2 -translate-x-1/2 text-[9px] text-gray-400 dark:text-gray-500 font-medium whitespace-nowrap overflow-hidden text-ellipsis max-w-[60px] text-center group-hover:text-black dark:group-hover:text-white group-hover:font-bold transition-colors">
                     {item.handle.replace('@', '')}
                   </p>
                 </div>
@@ -137,8 +137,14 @@ export const MetricsChart: React.FC<MetricsChartProps> = ({ data }) => {
           background-color: #f1f1f1;
           border-radius: 3px;
         }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: #333;
+        }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background-color: #d1d5db;
+        }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: #555;
         }
       `}</style>
     </div>

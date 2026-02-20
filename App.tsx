@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowRight, Loader2, AlertCircle, Check, Terminal } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, Check, Terminal, Moon, Sun } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { InfluencerCard } from './components/InfluencerCard';
 import { MetricsChart } from './components/MetricsChart';
 import { Footer } from './components/Footer';
@@ -8,28 +9,28 @@ import { Influencer, SearchStatus } from './types';
 
 // Skeleton Component to display while loading
 const SkeletonCard = () => (
-  <div className="w-full bg-white border-2 border-dashed border-gray-200 p-8 shadow-[12px_12px_0px_rgba(0,0,0,0.05)] h-full flex flex-col relative animate-pulse">
+  <div className="w-full bg-white dark:bg-[#111111] border-2 border-dashed border-gray-200 dark:border-[#333333] p-8 shadow-[12px_12px_0px_rgba(0,0,0,0.05)] dark:shadow-[12px_12px_0px_rgba(255,255,255,0.02)] h-full flex flex-col relative transition-colors duration-500 overflow-hidden">
     <div className="flex gap-4 mb-8">
-      <div className="w-24 h-24 bg-gray-200 rounded-sm shrink-0" />
+      <div className="w-24 h-24 rounded-full stretch-0 animate-shimmer" />
       <div className="flex flex-col justify-center flex-1 space-y-3">
-        <div className="h-6 bg-gray-200 w-3/4" />
-        <div className="h-4 bg-gray-100 w-1/2" />
+        <div className="h-6 w-3/4 rounded animate-shimmer" />
+        <div className="h-4 w-1/2 rounded animate-shimmer stagger-2" />
         <div className="flex gap-2">
-          <div className="w-16 h-5 bg-gray-100 rounded-full" />
-          <div className="w-16 h-5 bg-gray-100 rounded-full" />
+          <div className="w-16 h-5 rounded-full animate-shimmer stagger-3" />
+          <div className="w-16 h-5 rounded-full animate-shimmer stagger-4" />
         </div>
       </div>
     </div>
-    <div className="grid grid-cols-4 gap-4 px-4 py-6 bg-gray-50 border border-gray-100 mb-8 mt-auto mx-[-32px]">
-      <div className="h-4 bg-gray-200 rounded w-full" />
-      <div className="h-4 bg-gray-200 rounded w-full" />
-      <div className="h-4 bg-gray-200 rounded w-full" />
-      <div className="h-4 bg-gray-200 rounded w-full" />
+    <div className="grid grid-cols-4 gap-4 px-4 py-8 bg-gray-50 dark:bg-[#151515] border-y border-gray-100 dark:border-[#222222] mb-8 mt-auto mx-[-32px] transition-colors">
+      <div className="h-8 rounded w-full animate-shimmer stagger-1" />
+      <div className="h-8 rounded w-full animate-shimmer stagger-2" />
+      <div className="h-8 rounded w-full animate-shimmer stagger-3" />
+      <div className="h-8 rounded w-full animate-shimmer stagger-4" />
     </div>
-    <div className="space-y-2 mt-4">
-      <div className="h-3 bg-gray-100 w-full" />
-      <div className="h-3 bg-gray-100 w-full" />
-      <div className="h-3 bg-gray-100 w-4/5" />
+    <div className="space-y-3 mt-4">
+      <div className="h-3 w-full rounded animate-shimmer stagger-1" />
+      <div className="h-3 w-full rounded animate-shimmer stagger-2" />
+      <div className="h-3 w-4/5 rounded animate-shimmer stagger-3" />
     </div>
   </div>
 );
@@ -44,6 +45,7 @@ const App: React.FC = () => {
 
   // Timeline state
   const [searchStep, setSearchStep] = useState(0);
+  const { theme, setTheme } = useTheme();
 
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -76,25 +78,43 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [status]);
 
+  // Keyboard shortcut (CMD/CTRL + K) to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim()) return;
 
     setStatus(SearchStatus.SEARCHING);
+    setSearchStep(0);
     setError(null);
     setResults([]);
     setGroundingUrls([]);
 
+    // Progress Simulation
+    const progressInterval = setInterval(() => {
+      setSearchStep(prev => (prev < searchSteps.length - 1 ? prev + 1 : prev));
+    }, 1500);
+
     try {
       const data = await searchInfluencers(
         query,
-        (msg, current, target) => {
-          setProgressText(`${msg} - ${current}/${target} reais validados`);
-        },
+        (text) => setProgressText(text),
         (influencer) => {
           setResults(prev => {
             // Previne duplicados por StrictMode do React
-            if (prev.find(p => p.handle === influencer.handle)) return prev;
+            if (prev.find(i => i.handle === influencer.handle)) return prev;
             return [...prev, influencer];
           });
         }
@@ -107,6 +127,8 @@ const App: React.FC = () => {
       console.error(err);
       setError("Não conseguimos processar o pedido. Tente palavras-chave diferentes.");
       setStatus(SearchStatus.ERROR);
+    } finally {
+      clearInterval(progressInterval);
     }
   };
 
@@ -120,15 +142,24 @@ const App: React.FC = () => {
   const isSearching = status === SearchStatus.SEARCHING;
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-[#0A0A0A] text-black dark:text-[#FAFAFA] font-sans flex flex-col overflow-x-hidden transition-colors duration-500">
 
       {/* Navbar / Header - Ultra Minimal */}
-      <header className="border-b border-gray-100 py-6 px-6 md:px-12 flex justify-between items-center sticky top-0 bg-white/95 backdrop-blur-sm z-50 opacity-0 animate-fade-in-up">
+      <header className="border-b border-gray-100 dark:border-[#1F1F1F] py-6 px-6 md:px-12 flex justify-between items-center sticky top-0 bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-sm z-50 opacity-0 animate-fade-in-up transition-colors duration-500">
         <div className="font-bold text-xl tracking-tight flex items-center gap-2">
-          <Terminal size={20} />
+          <Terminal size={20} className="dark:text-[#FAFAFA]" />
           INFLUENCER SCOUT.
         </div>
-        <div className="text-sm font-medium text-gray-400">v1.0</div>
+        <div className="flex items-center gap-6">
+          <div className="text-sm font-medium text-gray-400 dark:text-gray-500">v1.0</div>
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#1F1F1F] transition-colors"
+            aria-label="Toggle Dark Mode"
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+        </div>
       </header>
 
       <main className="flex-grow flex flex-col px-6 md:px-12 max-w-7xl mx-auto w-full pt-12 md:pt-24 pb-20">
@@ -137,11 +168,11 @@ const App: React.FC = () => {
         <section className={`mb-12 max-w-4xl transition-all duration-700 ${status === SearchStatus.COMPLETED ? 'mb-12' : 'mb-20'}`}>
           <h1 className="text-5xl md:text-7xl font-bold mb-8 tracking-tighter leading-[0.9] opacity-0 animate-fade-in-up [animation-delay:200ms]">
             Encontre criadores.<br />
-            Analise métricas.
+            <span className="dark:text-gray-400 text-gray-700 transition-colors">Analise métricas.</span>
           </h1>
 
           <form onSubmit={handleSearch} className="relative w-full mb-8 opacity-0 animate-fade-in-up [animation-delay:400ms]">
-            <div className="relative group">
+            <div className="relative group flex items-center">
               <input
                 ref={inputRef}
                 type="text"
@@ -149,17 +180,23 @@ const App: React.FC = () => {
                 onChange={(e) => setQuery(e.target.value)}
                 disabled={isSearching}
                 placeholder={isSearching ? "Processando busca..." : "Descreva o perfil ideal..."}
-                className={`w-full bg-transparent border-b-2 border-gray-200 text-2xl md:text-4xl py-4 pr-16 font-medium placeholder:text-gray-300 focus:outline-none focus:border-black transition-all duration-300 rounded-none focus:pl-2 ${isSearching ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full bg-transparent border-b-2 border-gray-200 dark:border-[#333] text-2xl md:text-4xl py-4 pr-32 font-medium placeholder:text-gray-300 dark:placeholder:text-[#444] text-black dark:text-white focus:outline-none focus:border-black dark:focus:border-white transition-all duration-300 rounded-none focus:pl-2 ${isSearching ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
+              {!query && !isSearching && (
+                <div className="absolute right-12 top-1/2 -translate-y-1/2 pointer-events-none hidden md:flex items-center gap-1 opacity-40">
+                  <kbd className="px-2 py-1 bg-gray-100 dark:bg-[#222] border border-gray-200 dark:border-[#444] rounded text-xs font-mono font-bold text-gray-500 dark:text-gray-400">⌘</kbd>
+                  <kbd className="px-2 py-1 bg-gray-100 dark:bg-[#222] border border-gray-200 dark:border-[#444] rounded text-xs font-mono font-bold text-gray-500 dark:text-gray-400">K</kbd>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={isSearching || !query.trim()}
-                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 hover:opacity-70 transition-all disabled:opacity-30 hover:scale-110 active:scale-95"
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 hover:opacity-70 transition-all disabled:opacity-30 hover:scale-110 active:scale-95 text-black dark:text-white"
               >
                 {isSearching ? (
-                  <Loader2 className="animate-spin w-8 h-8 text-black" />
+                  <Loader2 className="animate-spin w-8 h-8" />
                 ) : (
-                  <ArrowRight className="w-8 h-8 text-black" />
+                  <ArrowRight className="w-8 h-8" />
                 )}
               </button>
             </div>
@@ -167,12 +204,12 @@ const App: React.FC = () => {
 
           {/* Timeline / Progress Log */}
           {status === SearchStatus.SEARCHING && (
-            <div className="mt-8 border-l-2 border-black pl-6 py-2 space-y-4 font-mono text-sm">
+            <div className="mt-8 border-l-2 border-black dark:border-white pl-6 py-2 space-y-4 font-mono text-sm transition-colors">
               <div className="flex items-center gap-3 transition-all duration-500 opacity-100">
                 <div className="w-4 flex justify-center">
-                  <div className="w-2 h-2 bg-black animate-pulse" />
+                  <div className="w-2 h-2 bg-black dark:bg-white animate-pulse" />
                 </div>
-                <span className="font-bold text-blue-600">
+                <span className="font-bold text-blue-600 dark:text-blue-400">
                   {progressText || "Iniciando inteligência de busca e extração de intenções..."}
                   <span className="animate-pulse ml-1">_</span>
                 </span>
@@ -188,12 +225,12 @@ const App: React.FC = () => {
                   >
                     <div className="w-4 flex justify-center">
                       {isActive ? (
-                        <div className="w-2 h-2 bg-black animate-pulse" />
+                        <div className="w-2 h-2 bg-black dark:bg-white animate-pulse" />
                       ) : (
-                        <Check size={14} />
+                        <Check size={14} className="dark:text-white text-black" />
                       )}
                     </div>
-                    <span className={isActive ? 'font-bold' : ''}>
+                    <span className={isActive ? 'font-bold dark:text-white text-black' : 'dark:text-gray-400 text-gray-500'}>
                       {step}
                       {isActive && <span className="animate-pulse ml-1">_</span>}
                     </span>
@@ -211,7 +248,7 @@ const App: React.FC = () => {
                 <button
                   key={i}
                   onClick={() => setQuery(q)}
-                  className="text-sm border border-gray-200 px-3 py-1 rounded-full text-gray-600 hover:border-black hover:text-black hover:bg-gray-50 transition-all duration-300 transform hover:-translate-y-0.5"
+                  className="text-sm border border-gray-200 dark:border-[#333] px-3 py-1 rounded-full text-gray-600 dark:text-gray-400 hover:border-black dark:hover:border-white hover:text-black dark:hover:text-white hover:bg-gray-50 dark:hover:bg-[#1A1A1A] transition-all duration-300 transform hover:-translate-y-0.5"
                 >
                   {q}
                 </button>
