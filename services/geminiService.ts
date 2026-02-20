@@ -82,7 +82,7 @@ export const searchInfluencers = async (query: string): Promise<{ influencers: I
     const validProfiles: any[] = [];
     const groundingUrls: string[] = [];
     const TARGET_PROFILES = 20;
-    const CHUNK_SIZE = 12; // Testar 12 de cada vez para não tomar Rate Limit brusco e ser rápido
+    const CHUNK_SIZE = 25; // Testar 25 de cada vez (Aumentado para máxima velocidade)
 
     console.log(`Encontrados ${handlesList.length} possíveis handles. Validando até ${TARGET_PROFILES}...`);
 
