@@ -2,125 +2,150 @@ import { Influencer } from "../types";
 
 const NVIDIA_API_KEY = "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";
 
-export const searchInfluencers = async (query: string): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
+export const searchInfluencers = async (
+  query: string,
+  onProgress?: (msg: string, current: number, target: number) => void
+): Promise<{ influencers: Influencer[], groundingUrls: string[] }> => {
   try {
+    const TARGET_PROFILES = 15;
+
+    // 1. Decodificar a Intenção do Usuário (Nicho + Seguidores Dinâmicos)
+    const intentPrompt = `O usuário digitou: "${query}".
+Extraia o nicho principal pesquisado e o requisito numérico mínimo de seguidores.
+Se o usuário não especificar uma quantidade de seguidores explícita, assuma 10000 como mínimo padrão.
+Retorne EXATAMENTE UM JSON com as duas propriedades:
+- "cleanedQuery": o termo ideal para buscar no instagram (ex: "matemática e finanças").
+- "minFollowers": um número inteiro. (ex: se pediu "10 mil", retorne 10000. se pediu "1M", retorne 1000000. se não falar número, 10000).`;
+
+    let cleanedQuery = query;
+    let minFollowers = 10000;
+
+    try {
+      const intentRes = await fetch("/api/nvidia/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "moonshotai/kimi-k2.5",
+          messages: [{ role: "user", content: intentPrompt }],
+          max_tokens: 150,
+          temperature: 0.1
+        })
+      });
+      if (intentRes.ok) {
+        const intentJson = await intentRes.json();
+        let intentText = intentJson.choices?.[0]?.message?.content || "{}";
+        intentText = intentText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsedIntent = JSON.parse(intentText);
+        if (parsedIntent.cleanedQuery) cleanedQuery = parsedIntent.cleanedQuery;
+        if (typeof parsedIntent.minFollowers === 'number') minFollowers = parsedIntent.minFollowers;
+      }
+    } catch (e) {
+      console.warn("Falha ao decodificar intenção, usando padrões", e);
+    }
+    
+    // Inicia progresso na UI
+    if (onProgress) onProgress(cleanedQuery, 0, TARGET_PROFILES);
+
     let allHandles = new Set<string>();
-
-    // 1. Scraping direto massivo (DuckDuckGo HTML Proxy) para achar handles reais do nicho.
-    // Usamos variadas formas de buscar para garantir dezenas de resultados no funil.
-    const searchQueries = [
-      `site:instagram.com ${query}`,
-      `site:instagram.com "influenciador" OR "criativo" ${query}`,
-      `site:instagram.com "criador de conteúdo" ${query}`,
-      `melhores influenciadores de ${query} instagram`,
-      `instagram perfis sobre ${query}`
-    ];
-
-    // Executa as buscas em paralelo para acelerar ao máximo
-    await Promise.all(searchQueries.map(async (sq) => {
-      try {
-        const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`);
-        if (!searchRes.ok) return;
-        const htmlText = await searchRes.text();
-
-        // Regex para capturar handles do Instagram
-        const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
-        const matches = [...htmlText.matchAll(instaRegex)];
-
-        // Excluir palavras reservadas comuns da URL do instagram
-        const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
-
-        matches.forEach(m => {
-          const h = m[1].toLowerCase().trim();
-          if (!ignoredHandles.includes(h) && h.length > 2) {
-            allHandles.add(h);
-          }
-        });
-      } catch (e) {
-        console.warn(`Erro na busca DDG para: ${sq}`, e);
-      }
-    }));
-
-    let handlesList = Array.from(allHandles);
-
-    // Se a busca web falhou categoricamente, usamos Kimi como último recurso para sugerir no mínimo 30
-    if (handlesList.length < 10) {
-      console.log("Poucos resultados na web, invocando Kimi para expandir lista...");
-      const handlesPrompt = `O usuário procura: "${query}". Liste no MÍNIMO 40 nomes de usuário (handles) do Instagram de influenciadores FAMOSOS e REAIS desse nicho. Retorne ESTRITAMENTE um array JSON puro de strings. Ex: ["user1", "user2"]`;
-      try {
-        const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "moonshotai/kimi-k2.5",
-            messages: [{ role: "user", content: handlesPrompt }],
-            max_tokens: 2048,
-            temperature: 0.2
-          })
-        });
-        if (kimiRes.ok) {
-          const kimiJson = await kimiRes.json();
-          let text = kimiJson.choices?.[0]?.message?.content || "[]";
-          text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const kimiHandles = JSON.parse(text);
-          if (Array.isArray(kimiHandles)) {
-            kimiHandles.forEach(h => handlesList.push(h.replace('@', '').toLowerCase().trim()));
-          }
-        }
-      } catch (e) {
-        console.warn("Kimi falhou ao gerar handles extras.", e);
-      }
-    }
-
-    // Limpa duplicados e garante os fallbacks finais só pra não quebrar
-    handlesList = Array.from(new Set(handlesList));
-    if (handlesList.length === 0) {
-      handlesList = ["loohansb", "natanrabelo", "kibestudio", "tiagofonsecaoficial", "mayke.garbo", "rocketseat", "filipe_deschamps", "lucasmontano", "akitaonrails"];
-    }
-
-    // 2. Validar iterativamente na API oficial até termos 20 perfis ou esgotarmos a lista
     const validProfiles: any[] = [];
     const groundingUrls: string[] = [];
-    const TARGET_PROFILES = 20;
-    const CHUNK_SIZE = 25; // Testar 25 de cada vez (Aumentado para máxima velocidade)
+    let duckDuckGoPages = 0; // Controle de paginação improvisada
 
-    console.log(`Encontrados ${handlesList.length} possíveis handles. Validando até ${TARGET_PROFILES}...`);
+    console.log(`Buscando "${cleanedQuery}" com minFollowers >= ${minFollowers}. Alvo: ${TARGET_PROFILES}`);
 
-    for (let i = 0; i < handlesList.length; i += CHUNK_SIZE) {
-      if (validProfiles.length >= TARGET_PROFILES) break;
+    // Loop contínuo até encontrar exatamente 15 válidos, limitando a 5 rodadas para não ficar infinito
+    while (validProfiles.length < TARGET_PROFILES && duckDuckGoPages < 5) {
+      
+      const duckQueries = [
+        `site:instagram.com ${cleanedQuery} ${duckDuckGoPages > 0 ? "influenciador" : ""}`,
+        `site:instagram.com "criador de conteúdo" ${cleanedQuery} ${duckDuckGoPages > 1 ? "oficial" : ""}`,
+        `melhores influenciadores de ${cleanedQuery} instagram ${duckDuckGoPages > 0 ? "lista" : ""}`,
+        `site:instagram.com "${cleanedQuery}" ${duckDuckGoPages > 2 ? "contato" : ""}`,
+        `site:instagram.com "k seguidores" ${cleanedQuery} ${duckDuckGoPages > 2 ? "brasil" : ""}`
+      ];
 
-      const chunk = handlesList.slice(i, i + CHUNK_SIZE);
-      await Promise.all(chunk.map(async (h) => {
-        // Se outro processo no Promise.all já preencheu a cota, abortamos o push
-        if (validProfiles.length >= TARGET_PROFILES) return;
+      await Promise.all(duckQueries.map(async (sq) => {
         try {
-          const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
-          if (instaRes.ok) {
-            const profileData = await instaRes.json();
+          const searchRes = await fetch(`/api/ddg/html/?q=${encodeURIComponent(sq)}`);
+          if (!searchRes.ok) return;
+          const htmlText = await searchRes.text();
+          const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
+          const matches = [...htmlText.matchAll(instaRegex)];
+          const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
+          
+          matches.forEach(m => {
+            const h = m[1].toLowerCase().trim();
+            if (!ignoredHandles.includes(h) && h.length > 2 && !allHandles.has(h)) {
+              allHandles.add(h);
+            }
+          });
+        } catch (e) { }
+      }));
 
-            // Filtro Super Rigoroso: Só valida como "Influenciador Real" se tiver mais de 10.000 seguidores
-            // Isso evita varrer usuários normais que coincidentemente tenham as palavras-chave na bio
-            const followers = profileData?.user_info?.follower_count || 0;
-            const isMinimalInfluencer = followers >= 10000;
+      // Se DDG falhou em dar volume, Kimi adiciona handles para tentar bater a meta
+      if (duckDuckGoPages === 1 && allHandles.size < TARGET_PROFILES) {
+         console.log("Kimi invocado para suplementar a lista escassa...");
+         const handlesPrompt = `O usuário exige mais influenciadores famosos do nicho: "${cleanedQuery}". Retorne JSON puro array com 30 nomes de usuário reais do Instagram sem @.`;
+         try {
+           const kimiRes = await fetch("/api/nvidia/v1/chat/completions", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.2 })
+           });
+           if (kimiRes.ok) {
+             const kimiJson = await kimiRes.json();
+             let text = kimiJson.choices?.[0]?.message?.content || "[]";
+             text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+             const kimiHandles = JSON.parse(text);
+             if (Array.isArray(kimiHandles)) kimiHandles.forEach(h => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+           }
+         } catch(e) {}
+      }
 
-            if (profileData && profileData.user_info && profileData.user_info.username && isMinimalInfluencer) {
-              // Verifica se já não inserimos um igual (devido ao paralelismo)
-              if (!validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
-                if (validProfiles.length < TARGET_PROFILES) {
-                  validProfiles.push(profileData);
-                  groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
+      // Filtrar Handles já processados (válidos ou descartados) da lista para a API
+      let unprocessedHandles = Array.from(allHandles).filter(
+        h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h)
+      );
+      
+      // Validação massiva em lotes para descobrir quem bate o requisito de seguidores
+      const CHUNK_SIZE = 25; 
+      for (let i = 0; i < unprocessedHandles.length; i += CHUNK_SIZE) {
+        if (validProfiles.length >= TARGET_PROFILES) break;
+        
+        const chunk = unprocessedHandles.slice(i, i + CHUNK_SIZE);
+        await Promise.all(chunk.map(async (h) => {
+          if (validProfiles.length >= TARGET_PROFILES) return;
+          try {
+            const instaRes = await fetch(`https://insta-api-lz.pages.dev/api?username=${h}`);
+            if (instaRes.ok) {
+              const profileData = await instaRes.json();
+              
+              const followers = profileData?.user_info?.follower_count || 0;
+              const isMinimalInfluencer = followers >= minFollowers; // Filtro Inteligente!
+
+              if (profileData && profileData.user_info && profileData.user_info.username && isMinimalInfluencer) {
+                if (!validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
+                  if (validProfiles.length < TARGET_PROFILES) {
+                    validProfiles.push(profileData);
+                    groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
+                    
+                    // EMITINDO PROGRESSO REAL PRO FRONTEND
+                    if (onProgress) onProgress(`Buscando ${cleanedQuery}...`, validProfiles.length, TARGET_PROFILES);
+                  }
                 }
               }
             }
+          } catch (e) {
+            // Conta inexistente ou bloqueada
           }
-        } catch (e) {
-          // Ignorar handlers inválidos
-        }
-      }));
+        }));
+      }
+
+      duckDuckGoPages++;
     }
 
     if (validProfiles.length === 0) {
-      console.warn("Nenhum perfil válido ou aberto encontrado na API.");
+      console.warn("Nenhum perfil válido ou aberto encontrado na API com os requisitos exigidos.");
       return { influencers: [], groundingUrls: [] };
     }
 

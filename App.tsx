@@ -12,6 +12,7 @@ const App: React.FC = () => {
   const [results, setResults] = useState<Influencer[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [groundingUrls, setGroundingUrls] = useState<string[]>([]);
+  const [progressText, setProgressText] = useState<string | null>(null);
 
   // Timeline state
   const [searchStep, setSearchStep] = useState(0);
@@ -57,10 +58,13 @@ const App: React.FC = () => {
     setGroundingUrls([]);
 
     try {
-      const data = await searchInfluencers(query);
+      const data = await searchInfluencers(query, (msg, current, target) => {
+        setProgressText(`${msg} - ${current}/${target} reais validados`);
+      });
       setResults(data.influencers);
       setGroundingUrls(data.groundingUrls);
       setStatus(SearchStatus.COMPLETED);
+      setProgressText(null);
     } catch (err: any) {
       console.error(err);
       setError("Não conseguimos processar o pedido. Tente palavras-chave diferentes.");
@@ -125,7 +129,16 @@ const App: React.FC = () => {
 
           {/* Timeline / Progress Log */}
           {status === SearchStatus.SEARCHING && (
-            <div className="mt-8 border-l-2 border-black pl-6 py-2 space-y-3 font-mono text-sm">
+            <div className="mt-8 border-l-2 border-black pl-6 py-2 space-y-4 font-mono text-sm">
+              <div className="flex items-center gap-3 transition-all duration-500 opacity-100">
+                <div className="w-4 flex justify-center">
+                  <div className="w-2 h-2 bg-black animate-pulse" />
+                </div>
+                <span className="font-bold text-blue-600">
+                  {progressText || "Iniciando inteligência de busca e extração de intenções..."}
+                  <span className="animate-pulse ml-1">_</span>
+                </span>
+              </div>
               {searchSteps.map((step, idx) => {
                 if (idx > searchStep) return null;
                 const isActive = idx === searchStep;
