@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
-import { Mail, Send } from 'lucide-react';
+import { Mail, Send, Check } from 'lucide-react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-const AdminMarketing: React.FC = () => {
+interface AdminMarketingProps {
+    showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+}
+
+const AdminMarketing: React.FC<AdminMarketingProps> = ({ showToast }) => {
     const [subject, setSubject] = useState('');
     const [body, setBody] = useState('');
     const [audience, setAudience] = useState('all'); // all, pro, active
     const [sending, setSending] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -20,12 +24,14 @@ const AdminMarketing: React.FC = () => {
                 status: 'queued',
                 createdAt: serverTimestamp()
             });
-            alert('Campanha inserida na fila de disparos (marketing_campaigns).');
+            setShowSuccess(true);
+            showToast('Campanha enfileirada com sucesso!', 'success');
             setSubject('');
             setBody('');
+            setTimeout(() => setShowSuccess(false), 3000);
         } catch (err) {
             console.error("Erro ao enfileirar campanha", err);
-            alert('Erro ao agendar disparos.');
+            showToast('Erro ao agendar disparos.', 'error');
         } finally {
             setSending(false);
         }
@@ -90,10 +96,15 @@ const AdminMarketing: React.FC = () => {
                     <div className="pt-4 border-t border-[#222] flex justify-end">
                         <button
                             type="submit"
-                            disabled={sending}
-                            className="bg-white text-black px-6 py-3 rounded-md font-bold text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            disabled={sending || showSuccess}
+                            className={`px-6 py-3 rounded-md font-bold text-sm flex items-center gap-2 transition-all duration-300 disabled:opacity-50 ${showSuccess ? 'bg-emerald-500 text-white' : 'bg-white text-black hover:bg-gray-200'
+                                }`}
                         >
-                            {sending ? 'Disparando...' : (
+                            {sending ? 'Disparando...' : showSuccess ? (
+                                <>
+                                    <Check size={16} /> Disparado!
+                                </>
+                            ) : (
                                 <>
                                     <Send size={16} /> Enviar Campanha
                                 </>

@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, getDocs, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { ShieldAlert, Ban, Search } from 'lucide-react';
+import { ShieldAlert, Ban, Search, CheckCircle2 } from 'lucide-react';
 
-const AdminSecurity: React.FC = () => {
+interface AdminSecurityProps {
+    showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+}
+
+const AdminSecurity: React.FC<AdminSecurityProps> = ({ showToast }) => {
     const [bannedUsers, setBannedUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -35,10 +39,12 @@ const AdminSecurity: React.FC = () => {
                 banReason: null,
                 updatedAt: serverTimestamp()
             });
+            showToast("Acesso do usuário restaurado!", "success");
             // Update list
             setBannedUsers(prev => prev.filter(u => u.id !== userId));
         } catch (err) {
             console.error("Erro ao remover ban:", err);
+            showToast("Erro ao processar reversão de banimento.", "error");
         }
     };
 

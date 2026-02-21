@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, DollarSign, Activity, Settings, ShieldAlert, Database, BarChart3, Mail, RefreshCw, Terminal, Menu, X } from 'lucide-react';
+import { Users, Search, DollarSign, Activity, Settings, ShieldAlert, Database, BarChart3, Mail, RefreshCw, Terminal, Menu, X, CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
 // Subcomponents
 import AdminOverview from '../components/admin/AdminOverview';
@@ -20,6 +20,16 @@ const AdminDashboard: React.FC = () => {
     const [activeMenu, setActiveMenu] = useState('overview');
     const [isMenuAnimating, setIsMenuAnimating] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [toast, setToast] = useState<{ show: boolean, message: string, type: 'success' | 'error' | 'info' }>({
+        show: false,
+        message: '',
+        type: 'success'
+    });
+
+    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => setToast(prev => ({ ...prev, show: false })), 3000);
+    };
 
     // Rota protegida
     useEffect(() => {
@@ -51,15 +61,16 @@ const AdminDashboard: React.FC = () => {
     ];
 
     const renderContent = () => {
+        const props = { showToast };
         switch (activeMenu) {
             case 'overview': return <AdminOverview />;
-            case 'users': return <AdminUsers />;
+            case 'users': return <AdminUsers {...props} />;
             case 'history': return <AdminHistory />;
             case 'finance': return <AdminFinance />;
             case 'system': return <AdminSystem />;
-            case 'marketing': return <AdminMarketing />;
-            case 'security': return <AdminSecurity />;
-            case 'settings': return <AdminSettings />;
+            case 'marketing': return <AdminMarketing {...props} />;
+            case 'security': return <AdminSecurity {...props} />;
+            case 'settings': return <AdminSettings {...props} />;
             case 'db': return <AdminDB />;
             default: return <AdminOverview />;
         }
@@ -175,6 +186,18 @@ const AdminDashboard: React.FC = () => {
                     </div>
                 </div>
             </main>
+            {/* Toast System */}
+            <div className={`fixed bottom-8 right-8 z-[100] transition-all duration-300 transform ${toast.show ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0 pointer-events-none'}`}>
+                <div className={`flex items-center gap-3 px-6 py-4 rounded-xl border backdrop-blur-md shadow-2xl ${toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                    toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                        'bg-white/10 border-white/20 text-white'
+                    }`}>
+                    {toast.type === 'success' && <CheckCircle2 size={20} />}
+                    {toast.type === 'error' && <AlertCircle size={20} />}
+                    {toast.type === 'info' && <Info size={20} />}
+                    <span className="font-bold tracking-tight">{toast.message}</span>
+                </div>
+            </div>
         </div>
     );
 };

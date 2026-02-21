@@ -4,7 +4,11 @@ import { db } from '../../lib/firebase';
 import { Users as UsersIcon, Search, ShieldBan, ShieldCheck } from 'lucide-react';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
-const AdminUsers: React.FC = () => {
+interface AdminUsersProps {
+    showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+}
+
+const AdminUsers: React.FC<AdminUsersProps> = ({ showToast }) => {
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -37,7 +41,7 @@ const AdminUsers: React.FC = () => {
 
         const newCredits = parseInt(input);
         if (isNaN(newCredits)) {
-            alert("Por favor, insira um número válido.");
+            showToast("Valor de créditos inválido.", "error");
             return;
         }
 
@@ -49,9 +53,10 @@ const AdminUsers: React.FC = () => {
             });
             // Update local state
             setUsers(prev => prev.map(u => u.id === userId ? { ...u, credits: newCredits } : u));
+            showToast(`Créditos atualizados para ${newCredits}!`, "success");
         } catch (err) {
             console.error("Erro ao atualizar créditos:", err);
-            alert("Erro ao processar ação.");
+            showToast("Erro ao processar alteração de créditos.", "error");
         }
     };
 
@@ -67,9 +72,10 @@ const AdminUsers: React.FC = () => {
             });
             // Update local state
             setUsers(prev => prev.map(u => u.id === userId ? { ...u, isBanned: !currentStatus } : u));
+            showToast(`Usuário ${!currentStatus ? 'banido' : 'desbloqueado'} com sucesso!`, "success");
         } catch (err) {
             console.error("Erro ao alterar status de banimento:", err);
-            alert("Erro ao processar ação.");
+            showToast("Erro ao processar alteração de status.", "error");
         }
     };
 

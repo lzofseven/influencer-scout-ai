@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Settings2, Sliders } from 'lucide-react';
+import { Save, Settings2, Sliders, Check } from 'lucide-react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 
-const AdminSettings: React.FC = () => {
+interface AdminSettingsProps {
+    showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+}
+
+const AdminSettings: React.FC<AdminSettingsProps> = ({ showToast }) => {
     const [saving, setSaving] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const [settings, setSettings] = useState({
@@ -38,10 +43,12 @@ const AdminSettings: React.FC = () => {
         try {
             const docRef = doc(db, 'settings', 'ai');
             await setDoc(docRef, settings, { merge: true });
-            alert('Sucesso: Configurações salvas no Firestore.');
+            setShowSuccess(true);
+            showToast('Configurações de IA salvas com sucesso!', 'success');
+            setTimeout(() => setShowSuccess(false), 3000);
         } catch (err) {
             console.error("Erro ao salvar", err);
-            alert('Erro ao salvar as configurações.');
+            showToast('Erro ao salvar as configurações.', 'error');
         } finally {
             setSaving(false);
         }
@@ -132,10 +139,15 @@ const AdminSettings: React.FC = () => {
                     <div className="pt-4 border-t border-[#222] flex justify-end">
                         <button
                             type="submit"
-                            disabled={saving || loading}
-                            className="bg-white text-black px-6 py-3 rounded-md font-bold text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50"
+                            disabled={saving || loading || showSuccess}
+                            className={`px-6 py-3 rounded-md font-bold text-sm flex items-center gap-2 transition-all duration-300 disabled:opacity-50 ${showSuccess ? 'bg-emerald-500 text-white' : 'bg-white text-black hover:bg-gray-200'
+                                }`}
                         >
-                            {saving ? 'Gravando...' : loading ? 'Carregando...' : (
+                            {saving ? 'Gravando...' : loading ? 'Carregando...' : showSuccess ? (
+                                <>
+                                    <Check size={16} /> Salvo!
+                                </>
+                            ) : (
                                 <>
                                     <Save size={16} /> Salvar Configurações Globais
                                 </>
