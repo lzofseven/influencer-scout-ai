@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, getDocs, where } from 'firebase/firestore';
+import { collection, query, getDocs, where, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { ShieldAlert, Ban, Search } from 'lucide-react';
 
@@ -25,6 +25,22 @@ const AdminSecurity: React.FC = () => {
         };
         fetchBanned();
     }, []);
+
+    const handleUnban = async (userId: string) => {
+        if (!confirm("Deseja restaurar o acesso deste usuário?")) return;
+        try {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+                isBanned: false,
+                banReason: null,
+                updatedAt: serverTimestamp()
+            });
+            // Update list
+            setBannedUsers(prev => prev.filter(u => u.id !== userId));
+        } catch (err) {
+            console.error("Erro ao remover ban:", err);
+        }
+    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -71,31 +87,6 @@ const AdminSecurity: React.FC = () => {
                                             <div className="text-[10px] font-mono text-gray-500">{user.id}</div>
                                         </td>
                                         <td className="px-6 py-4 text-xs">{user.banReason || 'Violação dos Termos de Uso'}</td>
-                                        import {doc, updateDoc, serverTimestamp} from 'firebase/firestore';
-
-const AdminSecurity: React.FC = () => {
-    // ... imports existing above ...
-    // Note: I will only update the internal logic as the imports were already partially there or handled by task.
-
-    // Adding unban handler inside component
-    const handleUnban = async (userId: string) => {
-        if (!confirm("Deseja restaurar o acesso deste usuário?")) return;
-                                        try {
-            const userRef = doc(db, 'users', userId);
-                                        await updateDoc(userRef, {
-                                            isBanned: false,
-                                        banReason: null,
-                                        updatedAt: serverTimestamp()
-            });
-            // Update list
-            setBannedUsers(prev => prev.filter(u => u.id !== userId));
-        } catch (err) {
-                                            console.error("Erro ao remover ban:", err);
-        }
-    };
-
-                                        return (
-                                        // ... grid and title ...
                                         <td className="px-6 py-4 text-right">
                                             <button
                                                 onClick={() => handleUnban(user.id)}
