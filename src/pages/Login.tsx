@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Loader2, Eye, EyeOff, Check, X } from 'lucide-react';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -15,10 +16,14 @@ const GoogleIcon = ({ size = 20 }: { size?: number }) => (
 
 export default function Login() {
     const navigate = useNavigate();
+    const { signInWithGoogle, user, resetPassword } = useAuth();
     const [view, setView] = useState<'login' | 'register'>('login');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
     const [codeStatus, setCodeStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
     const [showPassword, setShowPassword] = useState(false);
+    const [authError, setAuthError] = useState('');
+    const [resetStatus, setResetStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+    const [resetMsg, setResetMsg] = useState('');
     const [isMounted, setIsMounted] = useState(false);
 
     // Turnstile
@@ -491,11 +496,41 @@ export default function Login() {
                                 <div className="flex justify-between items-end mb-1">
                                     <label className="text-[11px] text-gray-400 font-semibold uppercase tracking-widest block">Palavra-passe</label>
                                     {view === 'login' && (
-                                        <button type="button" className="text-xs text-black dark:text-white font-medium hover:underline underline-offset-4 mb-0.5">
-                                            Esqueceste-te?
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (!email) {
+                                                    setAuthError("Digite seu e-mail para recuperar a senha.");
+                                                    return;
+                                                }
+                                                setAuthError("");
+                                                setResetStatus('sending');
+                                                setResetMsg('');
+                                                try {
+                                                    await resetPassword(email);
+                                                    setResetStatus('success');
+                                                    setResetMsg('E-mail de recuperação enviado!');
+                                                } catch (err: any) {
+                                                    setResetStatus('error');
+                                                    if (err.code === 'auth/user-not-found') {
+                                                        setResetMsg('Não há conta com este e-mail.');
+                                                    } else {
+                                                        setResetMsg('Ocorreu um erro.');
+                                                    }
+                                                }
+                                            }}
+                                            disabled={resetStatus === 'sending'}
+                                            className="text-xs text-black dark:text-white font-medium hover:underline underline-offset-4 mb-0.5 disabled:opacity-50"
+                                        >
+                                            {resetStatus === 'sending' ? 'Enviando...' : 'Esqueceste-te?'}
                                         </button>
                                     )}
                                 </div>
+                                {resetMsg && (
+                                    <p className={`text-xs mt-1 mb-2 ${resetStatus === 'success' ? 'text-green-500' : 'text-red-500'}`}>
+                                        {resetMsg}
+                                    </p>
+                                )}
                                 <div className="relative">
                                     <input
                                         type={showPassword ? "text" : "password"}
@@ -519,6 +554,12 @@ export default function Login() {
 
                         </div>
 
+                        {authError && (
+                            <div className="w-full mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-red-600 dark:text-red-400 text-sm flex items-center gap-2">
+                                <X size={16} />
+                                {authError}
+                            </div>
+                        )}
                         <div className="w-full mt-6 py-2 min-h-[65px] flex items-center justify-center border border-gray-100 dark:border-zinc-800 rounded bg-[#fafafa] dark:bg-zinc-900/50">
                             <Turnstile
                                 siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}

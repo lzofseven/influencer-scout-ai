@@ -100,7 +100,7 @@ export default function LandingPage() {
                         onClick={() => navigate('/planos')}
                         className="text-sm font-medium px-4 py-2 bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:text-black rounded-full transition-colors shadow-lg"
                     >
-                        Começar Grátis
+                        Acessar Plataforma
                     </button>
                 </div>
             </nav>
@@ -134,7 +134,7 @@ export default function LandingPage() {
                             onClick={() => navigate('/register')}
                             className="w-full sm:w-auto px-8 py-4 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-full font-semibold flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
                         >
-                            Criar Conta Gratuita <ArrowRight className="ml-2 w-5 h-5" />
+                            Criar Conta <ArrowRight className="ml-2 w-5 h-5" />
                         </button>
                         <button
                             onClick={() => navigate('/planos')}
