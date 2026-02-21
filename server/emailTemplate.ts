@@ -1,4 +1,4 @@
-export const generateVerificationEmail = (code: string) => `
+export const generateVerificationEmail = (code: string, nome: string = "Usuário") => `
 <!DOCTYPE html>
 <html lang="pt-PT">
 <head>
@@ -29,7 +29,7 @@ export const generateVerificationEmail = (code: string) => `
           <tr>
             <td align="center" style="padding: 0 40px 32px 40px;">
               <h1 style="margin: 0 0 16px 0; font-size: 26px; font-weight: 600; color: #000000; letter-spacing: -0.5px;">
-                Verifica o teu acesso
+                Olá, ${nome}! Verifica aqui o teu acesso
               </h1>
               <p style="margin: 0; font-size: 16px; line-height: 1.6; color: #52525b;">
                 Copie o código de segurança abaixo e cole na plataforma para concluir a sua autenticação.

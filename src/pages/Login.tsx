@@ -75,12 +75,14 @@ export default function Login() {
 
     const handleSendCode = async () => {
         if (!email) return alert("Preencha o e-mail primeiro.");
+        if (view === 'register' && !nome) return alert("Por favor, preencha o seu nome primeiro.");
+
         setCodeStatus('sending');
         try {
             const res = await fetch('http://localhost:3001/api/auth/send-otp', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, turnstileToken })
+                body: JSON.stringify({ email, turnstileToken, nome })
             });
             const data = await res.json();
             if (res.ok) {
@@ -141,7 +143,17 @@ export default function Login() {
             setTimeout(() => navigate('/dashboard'), 2500);
         } catch (error: any) {
             setStatus('idle');
-            alert("Erro de autenticação: " + (error.message || "Tente novamente."));
+            let errorMsg = error.message || "Tente novamente.";
+
+            if (error.code === 'auth/email-already-in-use') {
+                errorMsg = "Este e-mail já está cadastrado. Faça login.";
+            } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                errorMsg = "E-mail ou senha incorretos.";
+            } else if (error.code === 'auth/weak-password') {
+                errorMsg = "A senha deve ter pelo menos 6 caracteres.";
+            }
+
+            alert("Erro de autenticação: " + errorMsg);
         }
     };
 

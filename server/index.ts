@@ -8,14 +8,13 @@ import { generateVerificationEmail } from './emailTemplate.js';
 
 dotenv.config();
 
-// Initialize Firebase Admin (requer variável de ambiente GOOGLE_APPLICATION_CREDENTIALS ou serviceAccountKey)
 try {
     admin.initializeApp({
-        credential: admin.credential.applicationDefault() // Ou passe require('./serviceAccountKey.json')
+        projectId: "influencer-pro-2025-lohan"
     });
-    console.log('✅ Firebase Admin Iniciado');
+    console.log('✅ Firebase Admin Iniciado Localmente');
 } catch (error) {
-    console.log('⚠️ Firebase Admin Initialization Warning: Certifique-se de configurar GOOGLE_APPLICATION_CREDENTIALS');
+    console.log('⚠️ Firebase Admin Initialization Warning');
 }
 
 const db = admin.firestore();
@@ -115,7 +114,8 @@ app.post('/api/auth/send-otp', async (req, res) => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     otpCache.set(email, { code });
 
-    const htmlContent = generateVerificationEmail(code);
+    const nomeUser = req.body.nome || "Usuário(a)";
+    const htmlContent = generateVerificationEmail(code, nomeUser);
 
     try {
         await transporter.sendMail({
@@ -217,7 +217,7 @@ app.post('/api/search', verifyAuth, async (req, res) => {
             if (aiRes.ok) {
                 const json = await aiRes.json();
                 let text = json.choices?.[0]?.message?.content || "{}";
-                text = text.replace(/```json / gi, '').replace(/```/g, '').trim();
+                text = text.replace(/```json /gi, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(text);
                 if (parsed.cleanedQuery) cleanedQuery = parsed.cleanedQuery;
                 if (parsed.minFollowers) minFollowers = parsed.minFollowers;
