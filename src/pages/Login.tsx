@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '../lib/firebase';
-import { Mail, Lock, ArrowRight, User, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Mail, Lock, ArrowRight, User, ShieldAlert } from 'lucide-react';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
@@ -11,7 +12,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [isHuman, setIsHuman] = useState(false); // OAuth/Bot Captcha state
+    const [isHuman, setIsHuman] = useState(false); // Cloudflare Turnstile verification state
     const [error, setError] = useState('');
     const { signInWithGoogle, user } = useAuth();
     const navigate = useNavigate();
@@ -187,23 +188,21 @@ export default function Login() {
                         )}
 
                         {!isLogin && (
-                            <div className="mt-4 p-4 border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1A1A1A] flex items-center justify-between">
-                                <div className="flex items-center space-x-3">
+                            <div className="mt-4 p-4 border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1A1A1A] flex flex-col items-center justify-center space-y-3">
+                                <div className="flex items-center space-x-3 w-full">
                                     <ShieldAlert className="w-5 h-5 text-gray-400" />
                                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Verificação de Segurança
                                     </span>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setIsHuman(!isHuman)}
-                                    className={`relative flex items-center justify-center w-8 h-8 rounded border transition-colors ${isHuman
-                                        ? 'bg-green-500 border-green-500 text-white'
-                                        : 'bg-white dark:bg-[#111] border-gray-300 dark:border-[#444] text-transparent hover:border-blue-500'
-                                        }`}
-                                >
-                                    <CheckCircle2 className={`w-5 h-5 ${isHuman ? 'opacity-100' : 'opacity-0'}`} />
-                                </button>
+                                <div className="w-full flex justify-center">
+                                    <Turnstile
+                                        siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                                        onSuccess={() => setIsHuman(true)}
+                                        onError={() => setIsHuman(false)}
+                                        onExpire={() => setIsHuman(false)}
+                                    />
+                                </div>
                             </div>
                         )}
 
