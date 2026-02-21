@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../lib/firebase';
-import { Mail, Lock, ArrowRight, User } from 'lucide-react';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { auth } from '../src/lib/firebase';
+import { Mail, Lock, ArrowRight, User, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
+    const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [isHuman, setIsHuman] = useState(false); // OAuth/Bot Captcha state
     const [error, setError] = useState('');
     const { signInWithGoogle, user } = useAuth();
     const navigate = useNavigate();
@@ -22,15 +25,42 @@ export default function Login() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!isLogin) {
+            if (password !== confirmPassword) {
+                return setError('As senhas não coincidem.');
+            }
+            if (name.trim().length < 2) {
+                return setError('Por favor, insira um nome válido.');
+            }
+            if (!isHuman) {
+                return setError('Por favor, confirme que você não é um robô (Captcha).');
+            }
+        }
+
         try {
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
             } else {
-                await createUserWithEmailAndPassword(auth, email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                // Update Firebase Profile with Name
+                await updateProfile(userCredential.user, {
+                    displayName: name
+                });
             }
             navigate('/dashboard');
         } catch (err: any) {
-            setError(err.message || 'Ocorreu um erro na autenticação.');
+            console.error(err);
+            // Translate common Firebase errors
+            if (err.code === 'auth/configuration-not-found') {
+                setError('Erro Crítico: Firebase Auth não está configurado no Console. Habilite Email/Senha e verifique sua API Key.');
+            } else if (err.code === 'auth/email-already-in-use') {
+                setError('Este e-mail já está em uso.');
+            } else if (err.code === 'auth/weak-password') {
+                setError('A senha deve ter pelo menos 6 caracteres.');
+            } else {
+                setError(err.message || 'Ocorreu um erro na autenticação.');
+            }
         }
     };
 
@@ -38,8 +68,12 @@ export default function Login() {
         try {
             await signInWithGoogle();
             navigate('/dashboard');
-        } catch (err) {
-            setError('Falha ao autenticar com o Google.');
+        } catch (err: any) {
+            if (err.code === 'auth/configuration-not-found') {
+                setError('Erro Crítico: Firebase Auth não está configurado no Console. Habilite Email/Senha e verifique sua API Key.');
+            } else {
+                setError('Falha ao autenticar com o Google.');
+            }
         }
     };
 
@@ -71,6 +105,28 @@ export default function Login() {
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+
+                        {!isLogin && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Nome Completo
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <User className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        required={!isLogin}
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1A1A1A] text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                                        placeholder="Seu nome"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 E-mail
@@ -109,6 +165,48 @@ export default function Login() {
                             </div>
                         </div>
 
+                        {!isLogin && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Confirmar Senha
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Lock className="h-4 w-4 text-gray-400" />
+                                    </div>
+                                    <input
+                                        type="password"
+                                        required={!isLogin}
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1A1A1A] text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {!isLogin && (
+                            <div className="mt-4 p-4 border border-gray-200 dark:border-[#333] rounded-lg bg-gray-50 dark:bg-[#1A1A1A] flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <ShieldAlert className="w-5 h-5 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Verificação de Segurança
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsHuman(!isHuman)}
+                                    className={`relative flex items-center justify-center w-8 h-8 rounded border transition-colors ${isHuman
+                                            ? 'bg-green-500 border-green-500 text-white'
+                                            : 'bg-white dark:bg-[#111] border-gray-300 dark:border-[#444] text-transparent hover:border-blue-500'
+                                        }`}
+                                >
+                                    <CheckCircle2 className={`w-5 h-5 ${isHuman ? 'opacity-100' : 'opacity-0'}`} />
+                                </button>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
                             className="w-full flex items-center justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors mt-6"
@@ -124,7 +222,7 @@ export default function Login() {
                                 <div className="w-full border-t border-gray-200 dark:border-[#333]" />
                             </div>
                             <div className="relative flex justify-center text-sm">
-                                <span className="px-2 bg-white dark:bg-[#111] text-gray-500">Ou</span>
+                                <span className="px-2 bg-white dark:bg-[#111] text-gray-500">Ou use OAuth Direto</span>
                             </div>
                         </div>
 
