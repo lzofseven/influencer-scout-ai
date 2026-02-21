@@ -26,10 +26,9 @@ const AdminFinance: React.FC = () => {
         fetchFinanceData();
     }, []);
 
-    return (
     const totalRevenue = payments
-            .filter(pay => pay.status === 'paid')
-            .reduce((acc, pay) => acc + (Number(pay.amount) || 0), 0);
+        .filter(pay => pay.status === 'paid')
+        .reduce((acc, pay) => acc + (Number(pay.amount) || 0), 0);
 
     const activePlans = payments.filter(pay => pay.status === 'paid').length;
 
