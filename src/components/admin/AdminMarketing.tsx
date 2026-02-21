@@ -42,17 +42,25 @@ const AdminMarketing: React.FC = () => {
 
             <div className="bg-[#0a0a0a] rounded-xl border border-[#222] p-8 max-w-3xl">
                 <form onSubmit={handleSend} className="space-y-6">
-                    <div>
+                    <div className="relative group">
                         <label className="block text-sm font-medium text-gray-400 mb-2">Público-Alvo</label>
-                        <select
-                            value={audience}
-                            onChange={(e) => setAudience(e.target.value)}
-                            className="w-full bg-[#111] border border-[#333] text-white rounded-md px-4 py-3 focus:outline-none focus:border-white transition-colors"
-                        >
-                            <option value="all">Todos os Usuários Cadastrados</option>
-                            <option value="pro">Assinantes Ativos (Scale/Pro)</option>
-                            <option value="inactive">Usuários Inativos (+30 dias)</option>
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={audience}
+                                onChange={(e) => setAudience(e.target.value)}
+                                className="w-full bg-[#111] border border-white/10 text-white rounded-xl px-4 py-4 appearance-none focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20 transition-all cursor-pointer hover:bg-[#151515] font-medium"
+                            >
+                                <option value="all" className="bg-[#0a0a0a]">Todos os Usuários Cadastrados</option>
+                                <option value="starter" className="bg-[#0a0a0a]">Apenas Plano Starter</option>
+                                <option value="scale" className="bg-[#0a0a0a]">Assinantes Scale (VIP)</option>
+                                <option value="inactive" className="bg-[#0a0a0a]">Usuários Inativos (+30 dias)</option>
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 group-hover:text-white transition-colors">
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
