@@ -308,14 +308,18 @@ app.post('/api/search', verifyAuth, async (req, res) => {
                     }
                 }
 
-                text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                const kimiHandles = JSON.parse(text);
-                if (Array.isArray(kimiHandles)) {
-                    kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+                try {
+                    text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    const kimiHandles = JSON.parse(text);
+                    if (Array.isArray(kimiHandles)) {
+                        kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+                    }
+                } catch (e) {
+                    console.error("Erro ao dar parse nos handles da IA:", e);
                 }
             }).catch(() => { }));
 
-            await Promise.race([Promise.all(promises), new Promise(r => setTimeout(r, 6000))]);
+            await Promise.race([Promise.all(promises), new Promise(r => setTimeout(r, 10000))]);
         };
 
         await discoverHandles(cleanedQuery, 0);
@@ -358,7 +362,7 @@ app.post('/api/search', verifyAuth, async (req, res) => {
             category: p.user_info.category,
             biography: p.user_info.biography,
             follower_count: p.user_info.follower_count,
-            recent_captions: p.posts?.slice(0, 3).map((post: any) => post.caption?.substring(0, 150) || "")
+            recent_captions: (p.posts || []).slice(0, 3).map((post: any) => post.caption?.substring(0, 150) || "")
         }));
 
         const LLM_CHUNK_SIZE = 15;
@@ -440,7 +444,7 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
                                     comments_count: realProfile.metrics?.total_loaded?.comments || 0,
                                     category: realProfile.user_info.category || undefined,
                                     engagementRate: realProfile.metrics?.total_loaded?.engagement || inf.engagementRate,
-                                    lastPostImageUrl: realProfile.posts?.[0]?.image_url || undefined,
+                                    lastPostImageUrl: (realProfile.posts && realProfile.posts[0]?.image_url) || undefined,
                                 };
                                 if (!influencers.some(i => i.handle === finalInfluencer.handle)) influencers.push(finalInfluencer);
                             }
@@ -471,7 +475,7 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
                 likes_count: p.metrics?.total_loaded?.likes || 0,
                 posts_count: p.metrics?.total_loaded?.posts || 0,
                 comments_count: p.metrics?.total_loaded?.comments || 0,
-                lastPostImageUrl: p.posts?.[0]?.image_url
+                lastPostImageUrl: (p.posts && p.posts[0]?.image_url) || undefined
             }));
         }
 
