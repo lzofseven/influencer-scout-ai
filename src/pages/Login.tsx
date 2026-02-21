@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../src/lib/firebase';
+import { auth } from '../lib/firebase';
 import { Mail, Lock, ArrowRight, User, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 export default function Login() {
@@ -198,8 +198,8 @@ export default function Login() {
                                     type="button"
                                     onClick={() => setIsHuman(!isHuman)}
                                     className={`relative flex items-center justify-center w-8 h-8 rounded border transition-colors ${isHuman
-                                            ? 'bg-green-500 border-green-500 text-white'
-                                            : 'bg-white dark:bg-[#111] border-gray-300 dark:border-[#444] text-transparent hover:border-blue-500'
+                                        ? 'bg-green-500 border-green-500 text-white'
+                                        : 'bg-white dark:bg-[#111] border-gray-300 dark:border-[#444] text-transparent hover:border-blue-500'
                                         }`}
                                 >
                                     <CheckCircle2 className={`w-5 h-5 ${isHuman ? 'opacity-100' : 'opacity-0'}`} />
