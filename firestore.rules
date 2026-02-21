@@ -1,16 +1,30 @@
-rules_version='2'
+rules_version='2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper function for admin check
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'loohansb@gmail.com';
+    }
+
+    // Global admin access
     match /{document=**} {
-      // Protect user documents and subcollections (credits, history)
-      match /users/{userId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Protect user documents and subcollections (credits, history)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      match /{document=**} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
-        
-        match /{document=**} {
-          allow read, write: if request.auth != null && request.auth.uid == userId;
-        }
       }
+    }
+
+    // Protect global history (if they are stored outside /users/{uid})
+    match /history/{docId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
   }
 }
