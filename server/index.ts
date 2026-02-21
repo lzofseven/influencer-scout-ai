@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import admin from 'firebase-admin';
 import { LRUCache } from 'lru-cache';
+import nodemailer from 'nodemailer';
+import { generateVerificationEmail } from './emailTemplate.js';
 
 dotenv.config();
 
@@ -28,6 +30,21 @@ const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "nvapi-Hrhc9Payou82XIW7xctT
 const searchCache = new LRUCache<string, { influencers: any[], groundingUrls: string[] }>({
     max: 100,
     ttl: 1000 * 60 * 60, // 1 hora
+});
+
+// Cache for OTP verification
+const otpCache = new LRUCache<string, { code: string }>({
+    max: 1000,
+    ttl: 1000 * 60 * 10, // 10 minutos
+});
+
+// Setup Nodemailer
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER || 'influencerpro.lz@gmail.com',
+        pass: process.env.EMAIL_PASS || 'lajj djys bseu mddh'
+    }
 });
 
 // Middleware de Autenticação Estrita (Zero Trust)
@@ -67,6 +84,69 @@ const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs: numbe
         throw err;
     }
 };
+
+// Rotas de Autenticação (OTP + Cloudflare Turnstile)
+app.post('/api/auth/send-otp', async (req, res) => {
+    const { email, turnstileToken } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email é obrigatório.' });
+
+    // Verificar Cloudflare Turnstile (Se fornecido)
+    if (turnstileToken) {
+        try {
+            const formData = new URLSearchParams();
+            formData.append('secret', process.env.TURNSTILE_SECRET_KEY || 'OGijRLyCv5hY-_KHMsnGd8P1iP_wU9RXE5lLcmDy');
+            formData.append('response', turnstileToken);
+
+            const cfRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+            });
+            const cfData = await cfRes.json();
+            if (!cfData.success) {
+                return res.status(403).json({ error: 'Falha na verificação de segurança (Cloudflare).' });
+            }
+        } catch (err) {
+            return res.status(500).json({ error: 'Erro ao validar recaptcha.' });
+        }
+    }
+
+    // Gerar código de 6 digitos
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    otpCache.set(email, { code });
+
+    const htmlContent = generateVerificationEmail(code);
+
+    try {
+        await transporter.sendMail({
+            from: `"InfluencerPRO" <${process.env.EMAIL_USER || 'influencerpro.lz@gmail.com'}>`,
+            to: email,
+            subject: 'InfluencerPRO - O teu código de verificação',
+            html: htmlContent
+        });
+        return res.json({ success: true, message: 'OTP enviado com sucesso.' });
+    } catch (error) {
+        console.error("Erro ao enviar email OTP:", error);
+        return res.status(500).json({ error: 'Falha ao enviar e-mail de código.' });
+    }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Email e código são obrigatórios.' });
+
+    const storedData = otpCache.get(email);
+    if (!storedData) {
+        return res.status(400).json({ error: 'Código expirado ou não encontrado.' });
+    }
+
+    if (storedData.code !== code) {
+        return res.status(400).json({ error: 'Código incorreto.' });
+    }
+
+    otpCache.delete(email);
+    return res.json({ success: true, message: 'Código verificado com sucesso.' });
+});
 
 // Rota Segura de Busca
 app.post('/api/search', verifyAuth, async (req, res) => {
@@ -118,7 +198,7 @@ app.post('/api/search', verifyAuth, async (req, res) => {
         const startTime = Date.now();
         const HARD_TIMEOUT = 18000;
 
-        const intentPrompt = `O usuário digitou: "${query}".\nExtraia o nicho principal pesquisado e o requisito numérico mínimo de seguidores.\nSe o usuário não especificar uma quantidade de seguidores explícita, assuma 10000 como mínimo padrão.\nRetorne EXATAMENTE UM JSON com as duas propriedades:\n- "cleanedQuery": o termo ideal para buscar no instagram (ex: "matemática e finanças").\n- "minFollowers": um número inteiro. (ex: se pediu "10 mil", retorne 10000. se pediu "1M", retorne 1000000. se não falar número, 10000).`;
+        const intentPrompt = `O usuário digitou: "${query}".\nExtraia o nicho principal pesquisado e o requisito numérico mínimo de seguidores.\nSe o usuário não especificar uma quantidade de seguidores explícita, assuma 10000 como mínimo padrão.\nRetorne EXATAMENTE UM JSON com as duas propriedades: \n - "cleanedQuery": o termo ideal para buscar no instagram(ex: "matemática e finanças").\n - "minFollowers": um número inteiro. (ex: se pediu "10 mil", retorne 10000. se pediu "1M", retorne 1000000. se não falar número, 10000).`;
 
         let cleanedQuery = query;
         let minFollowers = 10000;
@@ -137,7 +217,7 @@ app.post('/api/search', verifyAuth, async (req, res) => {
             if (aiRes.ok) {
                 const json = await aiRes.json();
                 let text = json.choices?.[0]?.message?.content || "{}";
-                text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                text = text.replace(/```json / gi, '').replace(/```/g, '').trim();
                 const parsed = JSON.parse(text);
                 if (parsed.cleanedQuery) cleanedQuery = parsed.cleanedQuery;
                 if (parsed.minFollowers) minFollowers = parsed.minFollowers;

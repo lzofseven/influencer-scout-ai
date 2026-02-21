@@ -48,7 +48,7 @@ const App: React.FC = () => {
   const [groundingUrls, setGroundingUrls] = useState<string[]>([]);
   const [progressText, setProgressText] = useState<string | null>(null);
 
-  const { user, credits, tier, refreshCredits } = useAuth();
+  const { user, credits, tier, refreshCredits, logout } = useAuth();
   const navigate = useNavigate();
 
   // Timeline state
@@ -246,7 +246,7 @@ const App: React.FC = () => {
             </div>
             {user && (
               <button
-                onClick={() => { const { logout } = require('../contexts/AuthContext').useAuth(); logout(); navigate('/'); }}
+                onClick={async () => { await logout(); navigate('/'); }}
                 className="text-sm font-medium text-gray-500 hover:text-red-500 transition-colors"
                 title={user.email || ''}
               >
