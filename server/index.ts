@@ -502,6 +502,72 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
     }
 });
 
+// Endpoint de Webhook para Cakto (Monetização)
+app.post('/api/webhooks/cakto', async (req, res) => {
+    // Em produção, valide o x-cakto-signature usando crypto
+    const { event, data } = req.body;
+
+    if (!data || !data.order) {
+        return res.status(400).send('Payload inválido');
+    }
+
+    // Eventos de sucesso no checkout do Cakto
+    const targetEvents = ['ORDER_PAID', 'ORDER_APPROVED', 'SUBSCRIPTION_PAID', 'SUBSCRIPTION_APPROVED'];
+
+    if (targetEvents.includes(event)) {
+        const order = data.order || data.subscription || {};
+        // O UID deve ser enviado no metadata do checkout do Cakto para provisionamento automático
+        const uid = order.metadata?.uid || order.external_id;
+        const planName = order.metadata?.plan || 'Starter';
+
+        if (!uid) {
+            console.error('Webhook Falhou: UID ausente no metadata da ordem', order.id);
+            return res.status(400).send('UID ausente');
+        }
+
+        // Regra de Negócio: Definição de Créditos por Tier
+        const creditsToAdd = planName.toLowerCase().includes('scale') ? 500 : 100;
+
+        try {
+            const userRef = db.collection('users').doc(uid);
+            const userDoc = await userRef.get();
+
+            if (!userDoc.exists) {
+                console.error('Webhook Falhou: Usuário não existe no Firestore', uid);
+                return res.status(404).send('Usuário não encontrado');
+            }
+
+            // Provisionamento Atômico de Créditos e Upgrade de Tier
+            await userRef.update({
+                credits: admin.firestore.FieldValue.increment(creditsToAdd),
+                tier: planName,
+                lastPaymentAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Log de Transação para Auditoria Administrativa
+            await db.collection('payment_logs').add({
+                uid,
+                status: 'approved',
+                orderId: order.id,
+                amount: order.total_amount || order.total || 0,
+                plan: planName,
+                creditsAdded: creditsToAdd,
+                gateway: 'cakto',
+                processedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            console.log(`✅ Webhook Sucesso: ${creditsToAdd} créditos adicionados ao usuário ${uid}`);
+            return res.status(200).send('Créditos Provisionados');
+        } catch (err) {
+            console.error('Erro ao processar Webhook:', err);
+            return res.status(500).send('Erro Interno');
+        }
+    }
+
+    return res.status(200).send('Evento recebido');
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
     console.log(`🔒 Server-side Security Layer running on port ${PORT}`);
