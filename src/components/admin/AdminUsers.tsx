@@ -80,17 +80,17 @@ const AdminUsers: React.FC = () => {
 
     return (
         <div className="space-y-6 animate-fade-in-up">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
                     <h3 className="text-2xl font-bold tracking-tighter text-white">Gerenciar Usuários</h3>
                     <p className="text-gray-500 text-sm">Controle de saldo, tier e banimentos.</p>
                 </div>
-                <div className="relative">
+                <div className="relative w-full md:w-64">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                     <input
                         type="text"
                         placeholder="Buscar por Email ou UID..."
-                        className="pl-10 pr-4 py-2 bg-[#111] border border-[#222] rounded-md text-sm text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all w-64"
+                        className="pl-10 pr-4 py-2 bg-[#111] border border-[#222] rounded-md text-sm text-white focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all w-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -98,70 +98,72 @@ const AdminUsers: React.FC = () => {
             </div>
 
             <div className="bg-[#0a0a0a] rounded-xl border border-[#222] overflow-hidden">
-                <table className="w-full text-left text-sm text-gray-400">
-                    <thead className="bg-[#111] text-xs uppercase text-gray-500 border-b border-[#222]">
-                        <tr>
-                            <th className="px-6 py-4 font-mono font-medium">Usuário</th>
-                            <th className="px-6 py-4 font-mono font-medium">Plano / Tier</th>
-                            <th className="px-6 py-4 font-mono font-medium">Créditos</th>
-                            <th className="px-6 py-4 font-mono font-medium">Data Criação</th>
-                            <th className="px-6 py-4 font-mono font-medium">Último Acesso</th>
-                            <th className="px-6 py-4 font-mono font-medium text-right">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-600">Carregando usuários...</td></tr>
-                        ) : filteredUsers.length === 0 ? (
-                            <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-600">Nenhum usuário encontrado.</td></tr>
-                        ) : (
-                            filteredUsers.map(user => (
-                                <tr key={user.id} className="border-b border-[#1a1a1a] hover:bg-[#111] transition-colors">
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-white mb-0.5">{user.name || 'Sem Nome'}</div>
-                                        <div className="text-[10px] text-gray-400 mb-0.5">{user.email || 'Usuário Google/Sem Email'}</div>
-                                        <div className="text-[10px] font-mono text-gray-600 truncate max-w-[200px]">{user.id}</div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${user.tier === 'Admin' ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' :
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400 min-w-[800px]">
+                        <thead className="bg-[#111] text-xs uppercase text-gray-500 border-b border-[#222]">
+                            <tr>
+                                <th className="px-6 py-4 font-mono font-medium">Usuário</th>
+                                <th className="px-6 py-4 font-mono font-medium">Plano / Tier</th>
+                                <th className="px-6 py-4 font-mono font-medium">Créditos</th>
+                                <th className="px-6 py-4 font-mono font-medium">Data Criação</th>
+                                <th className="px-6 py-4 font-mono font-medium">Último Acesso</th>
+                                <th className="px-6 py-4 font-mono font-medium text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-600">Carregando usuários...</td></tr>
+                            ) : filteredUsers.length === 0 ? (
+                                <tr><td colSpan={6} className="px-6 py-12 text-center text-gray-600">Nenhum usuário encontrado.</td></tr>
+                            ) : (
+                                filteredUsers.map(user => (
+                                    <tr key={user.id} className="border-b border-[#1a1a1a] hover:bg-[#111] transition-colors">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-white mb-0.5">{user.name || 'Sem Nome'}</div>
+                                            <div className="text-[10px] text-gray-400 mb-0.5">{user.email || 'Usuário Google/Sem Email'}</div>
+                                            <div className="text-[10px] font-mono text-gray-600 truncate max-w-[200px]">{user.id}</div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${user.tier === 'Admin' ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' :
                                                 user.tier === 'Scale' ? 'bg-white text-black border-white' :
                                                     'bg-[#222] text-white border-gray-600'
-                                            }`}>
-                                            {user.tier || 'Starter'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 font-mono text-white">
-                                        {user.credits !== undefined ? user.credits : 0}
-                                    </td>
-                                    <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                        {user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : 'Desconhecido'}
-                                    </td>
-                                    <td className="px-6 py-4 text-xs font-mono text-gray-500">
-                                        {user.lastOnline?.toDate ? user.lastOnline.toDate().toLocaleString() : 'Desconhecido'}
-                                    </td>
-                                    <td className="px-6 py-4 text-right flex justify-end gap-3 mt-1.5">
-                                        <button
-                                            onClick={() => handleUpdateCredits(user.id, user.credits || 0)}
-                                            className="text-[10px] font-mono text-gray-400 border-b border-transparent hover:border-blue-500 hover:text-blue-500 transition-all pb-0.5"
-                                        >
-                                            CRÉDITOS
-                                        </button>
-                                        <button
-                                            onClick={() => handleToggleBan(user.id, !!user.isBanned)}
-                                            className={`flex items-center gap-1.5 text-[10px] font-mono transition-all pb-0.5 border-b border-transparent ${user.isBanned
-                                                ? 'text-emerald-500 hover:border-emerald-500'
-                                                : 'text-red-500 hover:border-red-500'
-                                                }`}
-                                        >
-                                            {user.isBanned ? <ShieldCheck size={12} /> : <ShieldBan size={12} />}
-                                            {user.isBanned ? 'DESBANIR' : 'BANIR'}
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                                                }`}>
+                                                {user.tier || 'Starter'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 font-mono text-white">
+                                            {user.credits !== undefined ? user.credits : 0}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs font-mono text-gray-500">
+                                            {user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : 'Desconhecido'}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs font-mono text-gray-500">
+                                            {user.lastOnline?.toDate ? user.lastOnline.toDate().toLocaleString() : 'Desconhecido'}
+                                        </td>
+                                        <td className="px-6 py-4 text-right flex justify-end gap-3 mt-1.5">
+                                            <button
+                                                onClick={() => handleUpdateCredits(user.id, user.credits || 0)}
+                                                className="text-[10px] font-mono text-gray-400 border-b border-transparent hover:border-blue-500 hover:text-blue-500 transition-all pb-0.5"
+                                            >
+                                                CRÉDITOS
+                                            </button>
+                                            <button
+                                                onClick={() => handleToggleBan(user.id, !!user.isBanned)}
+                                                className={`flex items-center gap-1.5 text-[10px] font-mono transition-all pb-0.5 border-b border-transparent ${user.isBanned
+                                                    ? 'text-emerald-500 hover:border-emerald-500'
+                                                    : 'text-red-500 hover:border-red-500'
+                                                    }`}
+                                            >
+                                                {user.isBanned ? <ShieldCheck size={12} /> : <ShieldBan size={12} />}
+                                                {user.isBanned ? 'DESBANIR' : 'BANIR'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

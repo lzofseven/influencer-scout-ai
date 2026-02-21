@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Users, Search, DollarSign, Activity, Settings, ShieldAlert, Database, BarChart3, Mail, RefreshCw, Terminal } from 'lucide-react';
+import { Users, Search, DollarSign, Activity, Settings, ShieldAlert, Database, BarChart3, Mail, RefreshCw, Terminal, Menu, X } from 'lucide-react';
 
 // Subcomponents
 import AdminOverview from '../components/admin/AdminOverview';
@@ -19,6 +19,7 @@ const AdminDashboard: React.FC = () => {
     const navigate = useNavigate();
     const [activeMenu, setActiveMenu] = useState('overview');
     const [isMenuAnimating, setIsMenuAnimating] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Rota protegida
     useEffect(() => {
@@ -66,11 +67,28 @@ const AdminDashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-black text-white font-sans flex overflow-hidden selection:bg-white selection:text-black">
+            {/* Overlay para fechar menu no mobile */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar minimalista */}
-            <aside className="w-72 border-r border-[#1a1a1a] bg-black flex flex-col h-screen fixed z-10 transition-colors">
-                <div className="p-6 border-b border-[#1a1a1a] flex items-center gap-3">
-                    <Terminal size={22} className="text-white" />
-                    <h1 className="font-bold tracking-tight text-xl">GOD MODE</h1>
+            <aside className={`w-72 border-r border-[#1a1a1a] bg-black flex flex-col h-screen fixed z-40 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+                }`}>
+                <div className="p-6 border-b border-[#1a1a1a] flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Terminal size={22} className="text-white" />
+                        <h1 className="font-bold tracking-tight text-xl">GOD MODE</h1>
+                    </div>
+                    <button
+                        className="lg:hidden p-1 hover:bg-[#111] rounded"
+                        onClick={() => setIsSidebarOpen(false)}
+                    >
+                        <X size={20} />
+                    </button>
                 </div>
 
                 <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
@@ -80,7 +98,10 @@ const AdminDashboard: React.FC = () => {
                         return (
                             <button
                                 key={item.id}
-                                onClick={() => setActiveMenu(item.id)}
+                                onClick={() => {
+                                    setActiveMenu(item.id);
+                                    setIsSidebarOpen(false); // Fecha no mobile ao clicar
+                                }}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ease-out border ${isActive
                                     ? 'bg-white text-black font-semibold border-white shadow-[0_0_15px_rgba(255,255,255,0.1)]'
                                     : 'bg-transparent text-gray-400 border-transparent hover:bg-[#111] hover:text-white hover:border-[#222]'
@@ -115,28 +136,36 @@ const AdminDashboard: React.FC = () => {
             </aside>
 
             {/* Conteúdo Central */}
-            <main className="flex-1 ml-72 bg-black min-h-screen relative overflow-y-auto overflow-x-hidden">
-                <div className="fixed top-0 left-72 right-0 h-64 bg-gradient-to-b from-[#111] to-transparent opacity-50 pointer-events-none z-0" />
+            <main className="flex-1 lg:ml-72 bg-black min-h-screen relative overflow-y-auto overflow-x-hidden">
+                <div className="fixed top-0 lg:left-72 left-0 right-0 h-64 bg-gradient-to-b from-[#111] to-transparent opacity-50 pointer-events-none z-0" />
 
-                <div className="p-10 relative z-10 max-w-7xl mx-auto min-h-full pb-32">
-                    <header className="flex justify-between items-end mb-12 border-b border-[#1a1a1a] pb-6 sticky top-0 bg-black/80 backdrop-blur-md pt-6 z-20">
-                        <div>
-                            <h2 className="text-4xl font-bold tracking-tighter text-white mb-2">
-                                {MENUS.find(m => m.id === activeMenu)?.label || 'Painel de Controle'}
-                            </h2>
-                            <p className="text-gray-400 text-sm font-mono">Sua visão onisciente corporativa.</p>
-                        </div>
+                <div className="p-6 md:p-10 relative z-10 max-w-7xl mx-auto min-h-full pb-32">
+                    <header className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-[#1a1a1a] pb-6 sticky top-0 bg-black/80 backdrop-blur-md pt-6 z-20 gap-4">
                         <div className="flex items-center gap-4">
-                            <div className="px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md flex items-center gap-3 text-xs font-mono text-gray-400">
+                            <button
+                                onClick={() => setIsSidebarOpen(true)}
+                                className="lg:hidden p-2 bg-[#111] border border-[#222] rounded-md"
+                            >
+                                <Menu size={20} />
+                            </button>
+                            <div>
+                                <h2 className="text-3xl md:text-4xl font-bold tracking-tighter text-white mb-1">
+                                    {MENUS.find(m => m.id === activeMenu)?.label || 'Painel de Controle'}
+                                </h2>
+                                <p className="text-gray-400 text-xs md:text-sm font-mono">Sua visão onisciente corporativa.</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 w-full md:w-auto">
+                            <div className="hidden sm:flex flex-1 md:flex-none px-4 py-2 bg-[#0a0a0a] border border-[#222] rounded-md items-center gap-3 text-xs font-mono text-gray-400">
                                 <Search size={14} className="text-gray-500" />
                                 <span>Omni-Search</span>
                                 <div className="border border-[#333] px-1.5 py-0.5 rounded text-[10px] text-gray-500">⌘K</div>
                             </div>
                             <button
                                 onClick={() => window.location.reload()}
-                                className="flex items-center gap-2 px-4 py-2 bg-white text-black text-sm font-bold rounded-md hover:bg-gray-200 transition-colors shadow-sm"
+                                className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white text-black text-xs md:text-sm font-bold rounded-md hover:bg-gray-200 transition-colors shadow-sm"
                             >
-                                <RefreshCw size={14} /> Atualizar Dados
+                                <RefreshCw size={14} /> Atualizar
                             </button>
                         </div>
                     </header>

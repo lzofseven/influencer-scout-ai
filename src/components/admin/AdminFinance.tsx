@@ -11,8 +11,8 @@ const AdminFinance: React.FC = () => {
         const fetchFinanceData = async () => {
             setLoading(true);
             try {
-                // Fetching from a hypothetical 'payments' or 'webhooks' collection
-                const q = query(collection(db, 'payments'), orderBy('createdAt', 'desc'), limit(50));
+                // Fetching from the actual 'payment_logs' collection populated by our Secure Webhook
+                const q = query(collection(db, 'payment_logs'), orderBy('processedAt', 'desc'), limit(50));
                 const snap = await getDocs(q);
                 const data: any[] = [];
                 snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
@@ -27,20 +27,20 @@ const AdminFinance: React.FC = () => {
     }, []);
 
     const totalRevenue = payments
-        .filter(pay => pay.status === 'paid')
+        .filter(pay => pay.status === 'approved' || pay.status === 'paid')
         .reduce((acc, pay) => acc + (Number(pay.amount) || 0), 0);
 
-    const activePlans = payments.filter(pay => pay.status === 'paid').length;
+    const activePlans = payments.filter(pay => pay.status === 'approved' || pay.status === 'paid').length;
 
     const downloadCSV = () => {
         if (payments.length === 0) return;
         const headers = ['ID', 'UserID', 'Amount', 'Status', 'Date'];
         const rows = payments.map(pay => [
             pay.id,
-            pay.userId,
+            pay.uid || pay.userId,
             pay.amount,
             pay.status,
-            pay.createdAt?.toDate ? pay.createdAt.toDate().toISOString() : ''
+            pay.processedAt?.toDate ? pay.processedAt.toDate().toISOString() : ''
         ]);
         const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -87,39 +87,44 @@ const AdminFinance: React.FC = () => {
             </div>
 
             <div className="bg-[#0a0a0a] rounded-xl border border-[#222] overflow-hidden">
-                <table className="w-full text-left text-sm text-gray-400">
-                    <thead className="bg-[#111] text-xs uppercase text-gray-500 border-b border-[#222]">
-                        <tr>
-                            <th className="px-6 py-4 font-mono font-medium">Transação (ID)</th>
-                            <th className="px-6 py-4 font-mono font-medium">Cliente (UID)</th>
-                            <th className="px-6 py-4 font-mono font-medium">Valor</th>
-                            <th className="px-6 py-4 font-mono font-medium">Status / Plano</th>
-                            <th className="px-6 py-4 font-mono font-medium text-right">Data</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {loading ? (
-                            <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-600">Aguardando logs do gateway...</td></tr>
-                        ) : payments.length === 0 ? (
-                            <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-600">Nenhum pagamento registrado ainda via webhook.</td></tr>
-                        ) : (
-                            payments.map(pay => (
-                                <tr key={pay.id} className="border-b border-[#1a1a1a] hover:bg-[#111] transition-colors">
-                                    <td className="px-6 py-4 font-mono text-xs">{pay.id}</td>
-                                    <td className="px-6 py-4 text-xs">{pay.userId}</td>
-                                    <td className="px-6 py-4 text-white font-bold">R$ {pay.amount || '0,00'}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${pay.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
-                                            }`}>
-                                            {pay.status || 'Pendente'}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-xs font-mono">{pay.createdAt?.toDate ? pay.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-400 min-w-[800px]">
+                        <thead className="bg-[#111] text-xs uppercase text-gray-500 border-b border-[#222]">
+                            <tr>
+                                <th className="px-6 py-4 font-mono font-medium">Transação (ID)</th>
+                                <th className="px-6 py-4 font-mono font-medium">Cliente (UID)</th>
+                                <th className="px-6 py-4 font-mono font-medium">Valor</th>
+                                <th className="px-6 py-4 font-mono font-medium">Status / Plano</th>
+                                <th className="px-6 py-4 font-mono font-medium text-right">Data Processamento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-600">Aguardando logs do gateway...</td></tr>
+                            ) : payments.length === 0 ? (
+                                <tr><td colSpan={5} className="px-6 py-12 text-center text-gray-600">Nenhum pagamento registrado ainda via webhook (payment_logs).</td></tr>
+                            ) : (
+                                payments.map(pay => (
+                                    <tr key={pay.id} className="border-b border-[#1a1a1a] hover:bg-[#111] transition-colors">
+                                        <td className="px-6 py-4 font-mono text-xs truncate max-w-[150px]">{pay.orderId || pay.id}</td>
+                                        <td className="px-6 py-4 text-xs font-mono">{pay.uid || 'Desconhecido'}</td>
+                                        <td className="px-6 py-4 text-white font-bold">R$ {(Number(pay.amount) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`w-fit px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${pay.status === 'approved' || pay.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-orange-500/10 text-orange-500 border-orange-500/20'
+                                                    }`}>
+                                                    {pay.status || 'Pendente'}
+                                                </span>
+                                                <span className="text-[9px] text-gray-500 uppercase font-bold">{pay.plan || 'Starter'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-xs font-mono">{pay.processedAt?.toDate ? pay.processedAt.toDate().toLocaleString('pt-BR') : 'N/A'}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
