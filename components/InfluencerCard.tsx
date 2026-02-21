@@ -78,26 +78,24 @@ export const InfluencerCard: React.FC<InfluencerCardProps> = ({ data, style, cla
           </div>
 
           {/* Stats Grid */}
-          {/* Stats Grid */}
-          <div className="grid grid-cols-4 gap-2 mb-4 py-3 border-y border-gray-50 dark:border-[#222] group-hover:border-gray-200 dark:group-hover:border-[#444] transition-colors items-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-2 mb-4 py-3 border-y border-gray-50 dark:border-[#222] group-hover:border-gray-200 dark:group-hover:border-[#444] transition-colors items-center">
             <div className="flex flex-col overflow-hidden">
               <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Seguidores</p>
-              <p className="text-xs md:text-sm font-bold font-mono text-gray-900 dark:text-white truncate">{data.followerCount}</p>
+              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white truncate">{data.followerCount}</p>
             </div>
             <div className="flex flex-col overflow-hidden">
               <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Views</p>
-              <p className="text-xs md:text-sm font-bold font-mono text-gray-900 dark:text-white truncate">
+              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white truncate">
                 {typeof data.views_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.views_count) : 'Oculto'}
               </p>
             </div>
             <div className="flex flex-col overflow-hidden">
               <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Curtidas</p>
-              <p className="text-xs md:text-sm font-bold font-mono text-gray-900 dark:text-white truncate">
+              <p className="text-sm font-bold font-mono text-gray-900 dark:text-white truncate">
                 {typeof data.likes_count === 'number' ? Intl.NumberFormat('pt-BR', { notation: "compact", maximumFractionDigits: 1 }).format(data.likes_count) : 'Oculto'}
               </p>
             </div>
-
-            <div className="flex flex-col overflow-hidden border-l border-gray-100 dark:border-[#333] pl-2">
+            <div className="flex flex-col overflow-hidden md:border-l border-gray-100 dark:border-[#333] md:pl-2">
               <p className="text-[9px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-bold mb-1 truncate">Engaj.</p>
               <div className="w-8 h-8 font-bold mt-0.5">
                 {(() => {
