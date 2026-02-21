@@ -159,14 +159,26 @@ export default function LandingPage() {
                         className="w-[80%] lg:w-[90%] max-w-lg object-contain z-10 drop-shadow-2xl opacity-90"
                     />
 
-                    {/* Liquid Glass Floating Pills - Monochrome */}
-                    <div ref={addToPills} className="absolute top-[20%] left-[10%] z-20 liquid-glass-light dark:liquid-glass-dark p-4 rounded-2xl flex items-center gap-3 border border-gray-200 dark:border-[#333] shadow-xl max-w-[200px]">
-                        <div className="w-10 h-10 rounded-full border-2 border-gray-900 dark:border-white bg-white dark:bg-black p-[2px] overflow-hidden">
-                            <img src="/hand.png" alt="Icon Refletivo" className="w-[150%] h-[150%] object-cover blur-sm opacity-60" />
+                    {/* Liquid Glass Floating Pills - Profile Card */}
+                    <div ref={addToPills} className="absolute top-[18%] left-[7%] z-20 liquid-glass-light dark:liquid-glass-dark p-3.5 rounded-2xl flex flex-col gap-3 border border-gray-200 dark:border-[#333] shadow-xl w-56">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full border border-gray-100 dark:border-white/10 bg-white dark:bg-black p-0.5 overflow-hidden flex-shrink-0">
+                                <img src="https://i.pravatar.cc/150?img=5" alt="Avatar Influenciadora" className="w-full h-full rounded-full object-cover" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">@mariamaternal</p>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-widest mt-0.5">Maternidade</p>
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Influenciadora Maternal</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">Engaj. 12.4%</p>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                            <div className="bg-white/60 dark:bg-white/5 rounded-lg p-2 text-center border border-gray-100 dark:border-white/5">
+                                <p className="text-[10px] text-gray-400 font-medium mb-0.5">Seguidores</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">1.2M</p>
+                            </div>
+                            <div className="bg-white/60 dark:bg-white/5 rounded-lg p-2 text-center border border-gray-100 dark:border-white/5">
+                                <p className="text-[10px] text-gray-400 font-medium mb-0.5">Engajamento</p>
+                                <p className="text-sm font-bold text-emerald-500">12.4%</p>
+                            </div>
                         </div>
                     </div>
 
