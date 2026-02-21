@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Users as UsersIcon, Search } from 'lucide-react';
+import { Users as UsersIcon, Search, ShieldBan, ShieldCheck } from 'lucide-react';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 const AdminUsers: React.FC = () => {
     const [users, setUsers] = useState<any[]>([]);
@@ -29,6 +30,24 @@ const AdminUsers: React.FC = () => {
         };
         fetchUsers();
     }, []);
+
+    const handleToggleBan = async (userId: string, currentStatus: boolean) => {
+        if (!confirm(`Deseja realmente ${currentStatus ? 'desbloquear' : 'banir'} este usuário?`)) return;
+
+        try {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+                isBanned: !currentStatus,
+                banReason: !currentStatus ? 'Violação detectada pelo Administrador' : null,
+                updatedAt: serverTimestamp()
+            });
+            // Update local state
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, isBanned: !currentStatus } : u));
+        } catch (err) {
+            console.error("Erro ao alterar status de banimento:", err);
+            alert("Erro ao processar ação.");
+        }
+    };
 
     const filteredUsers = users.filter(u =>
         (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,9 +114,19 @@ const AdminUsers: React.FC = () => {
                                     <td className="px-6 py-4 text-xs font-mono text-gray-500">
                                         {user.lastOnline?.toDate ? user.lastOnline.toDate().toLocaleString() : 'Desconhecido'}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <button className="text-xs font-mono text-gray-500 border-b border-transparent hover:border-white hover:text-white transition-all pb-0.5">
-                                            Editar
+                                    <td className="px-6 py-4 text-right flex justify-end gap-3 mt-1.5">
+                                        <button
+                                            onClick={() => handleToggleBan(user.id, !!user.isBanned)}
+                                            className={`flex items-center gap-1.5 text-[10px] font-mono transition-all pb-0.5 border-b border-transparent ${user.isBanned
+                                                    ? 'text-emerald-500 hover:border-emerald-500'
+                                                    : 'text-red-500 hover:border-red-500'
+                                                }`}
+                                        >
+                                            {user.isBanned ? <ShieldCheck size={12} /> : <ShieldBan size={12} />}
+                                            {user.isBanned ? 'DESBANIR' : 'BANIR'}
+                                        </button>
+                                        <button className="text-[10px] font-mono text-gray-500 border-b border-transparent hover:border-white hover:text-white transition-all pb-0.5">
+                                            EDITAR
                                         </button>
                                     </td>
                                 </tr>

@@ -71,8 +71,38 @@ const AdminSecurity: React.FC = () => {
                                             <div className="text-[10px] font-mono text-gray-500">{user.id}</div>
                                         </td>
                                         <td className="px-6 py-4 text-xs">{user.banReason || 'Violação dos Termos de Uso'}</td>
+                                        import {doc, updateDoc, serverTimestamp} from 'firebase/firestore';
+
+const AdminSecurity: React.FC = () => {
+    // ... imports existing above ...
+    // Note: I will only update the internal logic as the imports were already partially there or handled by task.
+
+    // Adding unban handler inside component
+    const handleUnban = async (userId: string) => {
+        if (!confirm("Deseja restaurar o acesso deste usuário?")) return;
+                                        try {
+            const userRef = doc(db, 'users', userId);
+                                        await updateDoc(userRef, {
+                                            isBanned: false,
+                                        banReason: null,
+                                        updatedAt: serverTimestamp()
+            });
+            // Update list
+            setBannedUsers(prev => prev.filter(u => u.id !== userId));
+        } catch (err) {
+                                            console.error("Erro ao remover ban:", err);
+        }
+    };
+
+                                        return (
+                                        // ... grid and title ...
                                         <td className="px-6 py-4 text-right">
-                                            <button className="text-xs font-mono text-white bg-[#222] px-3 py-1.5 rounded hover:bg-white hover:text-black transition-colors">Remover Ban</button>
+                                            <button
+                                                onClick={() => handleUnban(user.id)}
+                                                className="text-xs font-mono text-white bg-[#222] px-3 py-1.5 rounded hover:bg-white hover:text-black transition-colors"
+                                            >
+                                                Remover Ban
+                                            </button>
                                         </td>
                                     </tr>
                                 ))
