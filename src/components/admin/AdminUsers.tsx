@@ -31,6 +31,30 @@ const AdminUsers: React.FC = () => {
         fetchUsers();
     }, []);
 
+    const handleUpdateCredits = async (userId: string, currentCredits: number) => {
+        const input = prompt(`Quantos créditos deseja definir para este usuário? (Atual: ${currentCredits})`, currentCredits.toString());
+        if (input === null) return;
+
+        const newCredits = parseInt(input);
+        if (isNaN(newCredits)) {
+            alert("Por favor, insira um número válido.");
+            return;
+        }
+
+        try {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+                credits: newCredits,
+                updatedAt: serverTimestamp()
+            });
+            // Update local state
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, credits: newCredits } : u));
+        } catch (err) {
+            console.error("Erro ao atualizar créditos:", err);
+            alert("Erro ao processar ação.");
+        }
+    };
+
     const handleToggleBan = async (userId: string, currentStatus: boolean) => {
         if (!confirm(`Deseja realmente ${currentStatus ? 'desbloquear' : 'banir'} este usuário?`)) return;
 
@@ -116,17 +140,20 @@ const AdminUsers: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4 text-right flex justify-end gap-3 mt-1.5">
                                         <button
+                                            onClick={() => handleUpdateCredits(user.id, user.credits || 0)}
+                                            className="text-[10px] font-mono text-gray-400 border-b border-transparent hover:border-blue-500 hover:text-blue-500 transition-all pb-0.5"
+                                        >
+                                            CRÉDITOS
+                                        </button>
+                                        <button
                                             onClick={() => handleToggleBan(user.id, !!user.isBanned)}
                                             className={`flex items-center gap-1.5 text-[10px] font-mono transition-all pb-0.5 border-b border-transparent ${user.isBanned
-                                                    ? 'text-emerald-500 hover:border-emerald-500'
-                                                    : 'text-red-500 hover:border-red-500'
+                                                ? 'text-emerald-500 hover:border-emerald-500'
+                                                : 'text-red-500 hover:border-red-500'
                                                 }`}
                                         >
                                             {user.isBanned ? <ShieldCheck size={12} /> : <ShieldBan size={12} />}
                                             {user.isBanned ? 'DESBANIR' : 'BANIR'}
-                                        </button>
-                                        <button className="text-[10px] font-mono text-gray-500 border-b border-transparent hover:border-white hover:text-white transition-all pb-0.5">
-                                            EDITAR
                                         </button>
                                     </td>
                                 </tr>
