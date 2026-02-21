@@ -222,7 +222,7 @@ const App: React.FC = () => {
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    link.setAttribute('download', `InfluencerScout_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `InfluencerPRO_Report_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -235,7 +235,7 @@ const App: React.FC = () => {
       <header className="border-b border-gray-100 dark:border-[#1F1F1F] py-6 px-6 md:px-12 flex justify-between items-center sticky top-0 bg-white/95 dark:bg-[#0A0A0A]/95 backdrop-blur-sm z-50 opacity-0 animate-fade-in-up transition-colors duration-500">
         <div className="font-bold text-xl tracking-tight flex items-center gap-2">
           <Terminal size={20} className="dark:text-[#FAFAFA]" />
-          INFLUENCER SCOUT.
+          INFLUENCER PRO.
         </div>
         <div className="flex items-center gap-6">
           <div className="hidden md:flex items-center gap-3">

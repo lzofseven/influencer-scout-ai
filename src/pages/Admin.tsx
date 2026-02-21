@@ -45,8 +45,8 @@ const AdminDashboard: React.FC = () => {
                             key={item.id}
                             onClick={() => setActiveMenu(item.id)}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all ${activeMenu === item.id
-                                    ? 'bg-red-500/10 text-red-500 font-medium border border-red-500/20'
-                                    : 'text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                                ? 'bg-red-500/10 text-red-500 font-medium border border-red-500/20'
+                                : 'text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
                                 }`}
                         >
                             {item.icon}
@@ -74,7 +74,7 @@ const AdminDashboard: React.FC = () => {
                 <header className="flex justify-between items-center mb-10">
                     <div>
                         <h2 className="text-3xl font-bold tracking-tighter">Painel de Controle</h2>
-                        <p className="text-gray-400 text-sm mt-1">Sua visão onisciente do Influencer Scout.</p>
+                        <p className="text-gray-400 text-sm mt-1">Sua visão onisciente do InfluencerPRO.</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="px-3 py-1 bg-[#1A1A1A] border border-[#333] rounded-full flex items-center gap-2 text-xs font-mono text-gray-300">
