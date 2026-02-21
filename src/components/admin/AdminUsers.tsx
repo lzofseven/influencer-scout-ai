@@ -123,10 +123,11 @@ const AdminUsers: React.FC = () => {
                                         <div className="text-[10px] font-mono text-gray-600 truncate max-w-[200px]">{user.id}</div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${user.tier === 'Scale' ? 'bg-white text-black border-white' :
-                                            user.tier === 'Starter' ? 'bg-[#222] text-white border-gray-600' : 'bg-transparent text-gray-500 border-gray-800'
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${user.tier === 'Admin' ? 'bg-purple-500/20 text-purple-400 border-purple-500/50' :
+                                                user.tier === 'Scale' ? 'bg-white text-black border-white' :
+                                                    'bg-[#222] text-white border-gray-600'
                                             }`}>
-                                            {user.tier || 'free'}
+                                            {user.tier || 'Starter'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 font-mono text-white">
