@@ -8,6 +8,7 @@ interface AuthContextType {
     credits: number;
     tier: string;
     loading: boolean;
+    isAdmin: boolean;
     signInWithGoogle: () => Promise<void>;
     logout: () => Promise<void>;
     refreshCredits: () => Promise<void>;
@@ -21,6 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [credits, setCredits] = useState<number>(0);
     const [tier, setTier] = useState<string>('free'); // 'free', 'Starter', 'Scale'
     const [loading, setLoading] = useState(true);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     const refreshCredits = async (uid: string) => {
         try {
@@ -44,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             setUser(currentUser);
+            setIsAdmin(currentUser?.email === 'loohansb@gmail.com');
             if (currentUser) {
                 await refreshCredits(currentUser.uid);
             } else {
@@ -70,6 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         credits,
         tier,
         loading,
+        isAdmin,
         signInWithGoogle,
         logout,
         refreshCredits: () => user ? refreshCredits(user.uid) : Promise.resolve(),

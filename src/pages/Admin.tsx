@@ -6,19 +6,19 @@ import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 const AdminDashboard: React.FC = () => {
-    const { user, loading } = useAuth();
+    const { user, loading, isAdmin } = useAuth();
     const navigate = useNavigate();
     const [activeMenu, setActiveMenu] = useState('overview');
 
     // Proteção da rota
     useEffect(() => {
-        if (!loading && (!user || user.email !== 'loohansb@gmail.com')) {
+        if (!loading && !isAdmin) {
             navigate('/dashboard'); // Redireciona usuários comuns ou não logados
         }
-    }, [user, loading, navigate]);
+    }, [isAdmin, loading, navigate]);
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-mono">Verificando Autorização...</div>;
-    if (!user || user.email !== 'loohansb@gmail.com') return null; // Previne flash de conteúdo
+    if (!isAdmin) return null; // Previne flash de conteúdo
 
     return (
         <div className="min-h-screen bg-[#0A0A0A] text-[#FAFAFA] font-sans flex overflow-hidden">

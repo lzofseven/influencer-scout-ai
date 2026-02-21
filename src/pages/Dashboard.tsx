@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowRight, Loader2, AlertCircle, Check, Terminal, Moon, Sun, Download } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, Check, Terminal, Moon, Sun, Download, ShieldAlert } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { InfluencerCard } from '../../components/InfluencerCard';
 import { MetricsChart } from '../../components/MetricsChart';
@@ -48,7 +48,7 @@ const App: React.FC = () => {
   const [groundingUrls, setGroundingUrls] = useState<string[]>([]);
   const [progressText, setProgressText] = useState<string | null>(null);
 
-  const { user, credits, tier, refreshCredits, logout } = useAuth();
+  const { user, credits, tier, refreshCredits, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   // Timeline state
@@ -244,6 +244,15 @@ const App: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
               <span className="text-sm font-bold text-gray-900 dark:text-white">{credits} Créditos</span>
             </div>
+            {isAdmin && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="text-sm font-bold px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center gap-2"
+                title="Acessar o Admin God Mode"
+              >
+                <ShieldAlert size={14} /> Admin
+              </button>
+            )}
             {user && (
               <button
                 onClick={async () => { await logout(); navigate('/'); }}
