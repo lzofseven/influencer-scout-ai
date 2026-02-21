@@ -64,16 +64,35 @@ const AdminSettings: React.FC = () => {
                         <h4 className="flex items-center gap-2 text-white font-semibold pb-2 border-b border-[#222]">
                             <Settings2 size={18} /> Engine de Processamento principal
                         </h4>
-                        <div>
+                        <div className="relative group">
                             <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wide">Modelo Primário (Gemini)</label>
-                            <select
-                                value={settings.primaryModel}
-                                onChange={e => setSettings({ ...settings, primaryModel: e.target.value })}
-                                className="w-full bg-[#111] border border-[#333] text-white rounded-md px-4 py-3 focus:outline-none focus:border-white transition-colors"
-                            >
-                                <option value="gemini-2.0-flash">gemini-2.0-flash (Recomendado)</option>
-                                <option value="gemini-1.5-pro">gemini-1.5-pro (Mais Lento/Caro)</option>
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={settings.primaryModel}
+                                    onChange={e => setSettings({ ...settings, primaryModel: e.target.value })}
+                                    className="w-full bg-[#111] border border-white/10 text-white rounded-xl px-4 py-4 appearance-none focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20 transition-all cursor-pointer hover:bg-[#151515] font-medium"
+                                >
+                                    <optgroup label="Nova Geração (V3)" className="bg-[#0a0a0a]">
+                                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Preview)</option>
+                                        <option value="gemini-3-flash-preview">Gemini 3 Flash (Preview)</option>
+                                        <option value="gemini-3-deep-think-preview">Gemini 3 Deep Think (Reasoning)</option>
+                                    </optgroup>
+                                    <optgroup label="Série 2.5 (High Performance)" className="bg-[#0a0a0a]">
+                                        <option value="gemini-2.5-pro">Gemini 2.5 Pro (1M Context)</option>
+                                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Ultra Fast)</option>
+                                    </optgroup>
+                                    <optgroup label="Série 2.0 (Estáveis)" className="bg-[#0a0a0a]">
+                                        <option value="gemini-2.0-pro">Gemini 2.0 Pro</option>
+                                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Default)</option>
+                                        <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
+                                    </optgroup>
+                                </select>
+                                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 group-hover:text-white transition-colors">
+                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
                         <div className="flex items-center justify-between p-4 border border-[#333] rounded-md bg-[#111]">
                             <div>
