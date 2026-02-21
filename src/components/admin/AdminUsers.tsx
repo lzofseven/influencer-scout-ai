@@ -58,10 +58,11 @@ const AdminUsers: React.FC = () => {
                 <table className="w-full text-left text-sm text-gray-400">
                     <thead className="bg-[#111] text-xs uppercase text-gray-500 border-b border-[#222]">
                         <tr>
-                            <th className="px-6 py-4 font-mono font-medium">Usuário (UID)</th>
+                            <th className="px-6 py-4 font-mono font-medium">Usuário</th>
                             <th className="px-6 py-4 font-mono font-medium">Plano / Tier</th>
                             <th className="px-6 py-4 font-mono font-medium">Créditos</th>
-                            <th className="px-6 py-4 font-mono font-medium">Data Ingresso</th>
+                            <th className="px-6 py-4 font-mono font-medium">Data Criação</th>
+                            <th className="px-6 py-4 font-mono font-medium">Último Acesso</th>
                             <th className="px-6 py-4 font-mono font-medium text-right">Ações</th>
                         </tr>
                     </thead>
@@ -74,21 +75,25 @@ const AdminUsers: React.FC = () => {
                             filteredUsers.map(user => (
                                 <tr key={user.id} className="border-b border-[#1a1a1a] hover:bg-[#111] transition-colors">
                                     <td className="px-6 py-4">
-                                        <div className="font-bold text-white mb-0.5">{user.email || 'Usuário Google/Sem Email'}</div>
+                                        <div className="font-bold text-white mb-0.5">{user.name || 'Sem Nome'}</div>
+                                        <div className="text-[10px] text-gray-400 mb-0.5">{user.email || 'Usuário Google/Sem Email'}</div>
                                         <div className="text-[10px] font-mono text-gray-600 truncate max-w-[200px]">{user.id}</div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${user.tier === 'Scale' ? 'bg-white text-black border-white' :
-                                                user.tier === 'Starter' ? 'bg-[#222] text-white border-gray-600' : 'bg-transparent text-gray-500 border-gray-800'
+                                            user.tier === 'Starter' ? 'bg-[#222] text-white border-gray-600' : 'bg-transparent text-gray-500 border-gray-800'
                                             }`}>
                                             {user.tier || 'free'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 font-mono">
-                                        {user.credits || 0}
+                                    <td className="px-6 py-4 font-mono text-white">
+                                        {user.credits !== undefined ? user.credits : 0}
                                     </td>
                                     <td className="px-6 py-4 text-xs font-mono text-gray-500">
                                         {user.createdAt?.toDate ? user.createdAt.toDate().toLocaleDateString() : 'Desconhecido'}
+                                    </td>
+                                    <td className="px-6 py-4 text-xs font-mono text-gray-500">
+                                        {user.lastOnline?.toDate ? user.lastOnline.toDate().toLocaleString() : 'Desconhecido'}
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         <button className="text-xs font-mono text-gray-500 border-b border-transparent hover:border-white hover:text-white transition-all pb-0.5">

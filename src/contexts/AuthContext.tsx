@@ -24,17 +24,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
 
-    const refreshCredits = async (uid: string) => {
+    const refreshCredits = async (userObj: User) => {
         try {
-            const docRef = doc(db, 'users', uid);
+            const docRef = doc(db, 'users', userObj.uid);
             const docSnap = await getDoc(docRef);
+
+            const baseData = {
+                email: userObj.email || '',
+                name: userObj.displayName || '',
+                lastOnline: new Date(),
+            };
+
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setCredits(data.credits || 0);
                 setTier(data.tier || 'free');
+                // Atualiza online status e profile info
+                await setDoc(docRef, baseData, { merge: true });
             } else {
                 // Novo usuário ganha 5 créditos brinde na primeira vez que loga
-                await setDoc(docRef, { credits: 5, tier: 'free', createdAt: new Date() });
+                const newData = { ...baseData, credits: 5, tier: 'free', createdAt: new Date() };
+                await setDoc(docRef, newData);
                 setCredits(5);
                 setTier('free');
             }
@@ -48,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(currentUser);
             setIsAdmin(currentUser?.email === 'loohansb@gmail.com');
             if (currentUser) {
-                await refreshCredits(currentUser.uid);
+                await refreshCredits(currentUser);
             } else {
                 setCredits(0);
             }
@@ -76,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         signInWithGoogle,
         logout,
-        refreshCredits: () => user ? refreshCredits(user.uid) : Promise.resolve(),
+        refreshCredits: () => user ? refreshCredits(user) : Promise.resolve(),
         resetPassword: (email: string) => sendPasswordResetEmail(auth, email),
     };
 

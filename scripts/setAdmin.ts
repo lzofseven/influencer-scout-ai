@@ -15,8 +15,8 @@ try {
 const db = admin.firestore();
 
 const makeAdmin = async () => {
+    const email = 'loohansb@gmail.com';
     try {
-        const email = 'loohansb@gmail.com';
         const user = await admin.auth().getUserByEmail(email);
         console.log(`Encontrado usuário: ${user.uid}`);
 
