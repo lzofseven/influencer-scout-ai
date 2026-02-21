@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, Settings2, Sliders } from 'lucide-react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const AdminSettings: React.FC = () => {
     const [saving, setSaving] = useState(false);
+    const [loading, setLoading] = useState(true);
 
-    // Mock settings that would normally come from Firestore (e.g., config/ai_settings)
     const [settings, setSettings] = useState({
         primaryModel: 'gemini-2.0-flash',
         fallbackModel: 'moonshotai/kimi-k2.5',
@@ -13,14 +15,36 @@ const AdminSettings: React.FC = () => {
         enableFallback: true,
     });
 
-    const handleSave = (e: React.FormEvent) => {
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const docRef = doc(db, 'settings', 'ai');
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    setSettings(prev => ({ ...prev, ...docSnap.data() }));
+                }
+            } catch (err) {
+                console.error("Erro ao carregar configurações de IA", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
-        // Simulate save to Firestore
-        setTimeout(() => {
-            alert('Aviso simulado: Configurações salvas no Firestore.');
+        try {
+            const docRef = doc(db, 'settings', 'ai');
+            await setDoc(docRef, settings, { merge: true });
+            alert('Sucesso: Configurações salvas no Firestore.');
+        } catch (err) {
+            console.error("Erro ao salvar", err);
+            alert('Erro ao salvar as configurações.');
+        } finally {
             setSaving(false);
-        }, 1000);
+        }
     };
 
     return (
@@ -89,10 +113,10 @@ const AdminSettings: React.FC = () => {
                     <div className="pt-4 border-t border-[#222] flex justify-end">
                         <button
                             type="submit"
-                            disabled={saving}
+                            disabled={saving || loading}
                             className="bg-white text-black px-6 py-3 rounded-md font-bold text-sm flex items-center gap-2 hover:bg-gray-200 transition-colors disabled:opacity-50"
                         >
-                            {saving ? 'Gravando...' : (
+                            {saving ? 'Gravando...' : loading ? 'Carregando...' : (
                                 <>
                                     <Save size={16} /> Salvar Configurações Globais
                                 </>

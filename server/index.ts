@@ -23,6 +23,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "AIzaSy_Colar_Aqui_A_Key";
 const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "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";
 
 // Cache L2 No Backend
@@ -204,25 +205,49 @@ app.post('/api/search', verifyAuth, async (req, res) => {
         let minFollowers = 10000;
 
         try {
-            const aiRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
+            let aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    model: "moonshotai/kimi-k2.5",
-                    messages: [{ role: "user", content: intentPrompt }],
-                    max_tokens: 150,
-                    temperature: 0.1
+                    contents: [{ role: "user", parts: [{ text: intentPrompt }] }],
+                    generationConfig: {
+                        temperature: 0.1,
+                        maxOutputTokens: 150
+                    }
                 })
             });
-            if (aiRes.ok) {
-                const json = await aiRes.json();
-                let text = json.choices?.[0]?.message?.content || "{}";
-                text = text.replace(/```json /gi, '').replace(/```/g, '').trim();
-                const parsed = JSON.parse(text);
-                if (parsed.cleanedQuery) cleanedQuery = parsed.cleanedQuery;
-                if (parsed.minFollowers) minFollowers = parsed.minFollowers;
+            let isGeminiSuccess = aiRes.ok;
+            let json;
+            let text = "{}";
+
+            if (isGeminiSuccess) {
+                json = await aiRes.json();
+                text = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            } else {
+                console.error("Gemini Intent API failed:", await aiRes.text(), "Falling back to Kimi...");
+                aiRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: "moonshotai/kimi-k2.5",
+                        messages: [{ role: "user", content: intentPrompt }],
+                        max_tokens: 150,
+                        temperature: 0.1
+                    })
+                });
+                if (aiRes.ok) {
+                    json = await aiRes.json();
+                    text = json.choices?.[0]?.message?.content || "{}";
+                }
             }
-        } catch (e) { console.error("Erro Intent:", e); }
+
+            text = text.replace(/```json /gi, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(text);
+            if (parsed.cleanedQuery) cleanedQuery = parsed.cleanedQuery;
+            if (parsed.minFollowers) minFollowers = parsed.minFollowers;
+        } catch (e) {
+            console.error("Erro Intent:", e);
+        }
 
         let allHandles = new Set<string>();
         const validProfiles: any[] = [];
@@ -255,19 +280,38 @@ app.post('/api/search', verifyAuth, async (req, res) => {
             }
 
             const handlesPrompt = `Retorne um array JSON com 50 handles de Instagram sobre "${currentQuery}". Somente o JSON.`;
-            promises.push(fetch("https://api.nvapi.com/v1/chat/completions", {
+            promises.push(fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
                 method: "POST",
-                headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ role: "user", parts: [{ text: handlesPrompt }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        maxOutputTokens: 1000
+                    }
+                })
             }).then(async (res) => {
+                let text = "[]";
                 if (res.ok) {
                     const json = await res.json();
-                    let text = json.choices?.[0]?.message?.content || "[]";
-                    text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                    const kimiHandles = JSON.parse(text);
-                    if (Array.isArray(kimiHandles)) {
-                        kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
+                    text = json.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+                } else {
+                    console.error("Gemini Handles API failed:", await res.text(), "Falling back to Kimi...");
+                    const fallbackRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
+                        method: "POST",
+                        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+                        body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
+                    });
+                    if (fallbackRes.ok) {
+                        const json = await fallbackRes.json();
+                        text = json.choices?.[0]?.message?.content || "[]";
                     }
+                }
+
+                text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const kimiHandles = JSON.parse(text);
+                if (Array.isArray(kimiHandles)) {
+                    kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
                 }
             }).catch(() => { }));
 
@@ -345,14 +389,36 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
 
             llmPromises.push(
                 Promise.race([
-                    fetch("https://api.nvapi.com/v1/chat/completions", {
+                    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
                         method: "POST",
-                        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: analysisPrompt }], max_tokens: 1500, temperature: 0.1 })
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            contents: [{ role: "user", parts: [{ text: analysisPrompt }] }],
+                            generationConfig: {
+                                temperature: 0.1,
+                                maxOutputTokens: 1500
+                            }
+                        })
                     }).then(async (res) => {
-                        if (!res.ok) return [];
-                        const json = await res.json();
-                        let text = json.choices?.[0]?.message?.content || "[]";
+                        let text = "[]";
+                        if (res.ok) {
+                            const json = await res.json();
+                            text = json.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+                        } else {
+                            console.error("Gemini Analysis API failed:", await res.text(), "Falling back to Kimi...");
+                            const fallbackRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
+                                method: "POST",
+                                headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+                                body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: analysisPrompt }], max_tokens: 1500, temperature: 0.1 })
+                            });
+                            if (fallbackRes.ok) {
+                                const json = await fallbackRes.json();
+                                text = json.choices?.[0]?.message?.content || "[]";
+                            } else {
+                                return [];
+                            }
+                        }
+
                         text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
                         let parsedBatch: any[] = [];
                         try { parsedBatch = JSON.parse(text); } catch (e) { return []; }

@@ -6,24 +6,35 @@ import { Activity, Cpu, HardDrive, Wifi } from 'lucide-react';
 const AdminSystem: React.FC = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [status, setStatus] = useState<any>({ gemini: 'loading', kimi: 'loading', latency: '0s', errors24h: 0 });
 
     useEffect(() => {
-        const fetchLogs = async () => {
+        const fetchSystemData = async () => {
             setLoading(true);
             try {
-                // Hypothetical errors/system_logs collection
+                // Fetch logs
                 const q = query(collection(db, 'system_logs'), orderBy('timestamp', 'desc'), limit(30));
                 const snap = await getDocs(q);
                 const data: any[] = [];
                 snap.forEach(doc => data.push({ id: doc.id, ...doc.data() }));
                 setLogs(data);
+
+                // Fetch real system status from config/system_status
+                const statusRef = doc(db, 'settings', 'system_status');
+                const statusSnap = await getDoc(statusRef);
+                if (statusSnap.exists()) {
+                    setStatus(statusSnap.data());
+                } else {
+                    // Fallback baseline if doc doesn't exist yet
+                    setStatus({ gemini: 'online', kimi: 'online', latency: '--', errors24h: 0 });
+                }
             } catch (err) {
-                console.error("Erro fetch logs:", err);
+                console.error("Erro fetch system data:", err);
             } finally {
                 setLoading(false);
             }
         };
-        fetchLogs();
+        fetchSystemData();
     }, []);
 
     return (
@@ -37,24 +48,24 @@ const AdminSystem: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div className="p-4 rounded-xl bg-[#111] border border-[#222] flex flex-col justify-between items-center text-center">
-                    <Wifi size={24} className="text-emerald-500 mb-2" />
+                    <Wifi size={24} className={status.gemini === 'online' ? 'text-emerald-500 mb-2' : 'text-red-500 mb-2'} />
                     <p className="text-sm font-medium text-gray-500">Status Gemini</p>
-                    <h3 className="text-lg font-bold text-white">Online</h3>
+                    <h3 className="text-lg font-bold text-white uppercase">{status.gemini}</h3>
                 </div>
                 <div className="p-4 rounded-xl bg-[#111] border border-[#222] flex flex-col justify-between items-center text-center">
-                    <Wifi size={24} className="text-emerald-500 mb-2" />
+                    <Wifi size={24} className={status.kimi === 'online' ? 'text-emerald-500 mb-2' : 'text-red-500 mb-2'} />
                     <p className="text-sm font-medium text-gray-500">Status Kimi (Fallback)</p>
-                    <h3 className="text-lg font-bold text-white">Online</h3>
+                    <h3 className="text-lg font-bold text-white uppercase">{status.kimi}</h3>
                 </div>
                 <div className="p-4 rounded-xl bg-[#111] border border-[#222] flex flex-col justify-between items-center text-center">
                     <Cpu size={24} className="text-gray-400 mb-2" />
                     <p className="text-sm font-medium text-gray-500">Latência Média</p>
-                    <h3 className="text-lg font-bold text-white">3.2s</h3>
+                    <h3 className="text-lg font-bold text-white">{status.latency}</h3>
                 </div>
                 <div className="p-4 rounded-xl bg-[#111] border border-[#222] flex flex-col justify-between items-center text-center">
                     <HardDrive size={24} className="text-gray-400 mb-2" />
                     <p className="text-sm font-medium text-gray-500">Erros (Últimas 24h)</p>
-                    <h3 className="text-lg font-bold text-white">0</h3>
+                    <h3 className="text-lg font-bold text-white">{status.errors24h}</h3>
                 </div>
             </div>
 

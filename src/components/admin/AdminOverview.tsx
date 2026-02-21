@@ -37,7 +37,7 @@ const AdminOverview: React.FC = () => {
 
             // Atividade Recente (ex: join de usuários e buscas)
             // Para simplicidade, usamos logs recentes do history ou users se tivermos timestamps.
-            // Aqui pegaremos os ultimos usuários e buscas simulando um feed.
+            // Aqui pegaremos os ultimos usuários e buscas reais.
             const recentHistoryQ = query(collection(db, 'history'), orderBy('timestamp', 'desc'), limit(5));
             const rhSnap = await getDocs(recentHistoryQ);
 

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, Send } from 'lucide-react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const AdminMarketing: React.FC = () => {
     const [subject, setSubject] = useState('');
@@ -7,16 +9,26 @@ const AdminMarketing: React.FC = () => {
     const [audience, setAudience] = useState('all'); // all, pro, active
     const [sending, setSending] = useState(false);
 
-    const handleSend = (e: React.FormEvent) => {
+    const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         setSending(true);
-        // Firebase Cloud Function trigger to send emails would go here
-        setTimeout(() => {
-            alert('Aviso simulado: E-mails encaminhados para a fila do SendGrid/Nodemailer.');
-            setSending(false);
+        try {
+            await addDoc(collection(db, 'marketing_campaigns'), {
+                subject,
+                body,
+                audience,
+                status: 'queued',
+                createdAt: serverTimestamp()
+            });
+            alert('Campanha inserida na fila de disparos (marketing_campaigns).');
             setSubject('');
             setBody('');
-        }, 1500);
+        } catch (err) {
+            console.error("Erro ao enfileirar campanha", err);
+            alert('Erro ao agendar disparos.');
+        } finally {
+            setSending(false);
+        }
     };
 
     return (

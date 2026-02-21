@@ -27,6 +27,28 @@ const AdminHistory: React.FC = () => {
         fetchHistory();
     }, []);
 
+    const downloadCSV = () => {
+        if (history.length === 0) return;
+        const headers = ['ID', 'Timestamp', 'UserID', 'Query', 'ResultsCount'];
+        const rows = history.map(item => [
+            item.id,
+            item.timestamp?.toDate ? item.timestamp.toDate().toISOString() : '',
+            item.userId || 'Sistema',
+            `"${item.query || ''}"`,
+            item.resultsCount || 0
+        ]);
+        const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `history_export_${new Date().getTime()}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     return (
         <div className="space-y-6 animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
@@ -34,7 +56,10 @@ const AdminHistory: React.FC = () => {
                     <h3 className="text-2xl font-bold tracking-tighter text-white">Histórico Global de Buscas</h3>
                     <p className="text-gray-500 text-sm">Auditoria "Omnisciente" do uso da plataforma pelos usuários.</p>
                 </div>
-                <button className="text-xs font-mono px-4 py-2 bg-white text-black hover:bg-gray-200 transition-colors rounded-md font-bold shadow-sm">
+                <button
+                    onClick={downloadCSV}
+                    className="text-xs font-mono px-4 py-2 bg-white text-black hover:bg-gray-200 transition-colors rounded-md font-bold shadow-sm"
+                >
                     Baixar Relatório (CSV)
                 </button>
             </div>
