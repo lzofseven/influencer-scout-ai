@@ -170,7 +170,7 @@ export default function Login() {
                 email: user.email,
                 name: name || user.displayName || 'Usuário',
                 credits: 5,
-                tier: 'Free Trial',
+                tier: 'Starter',
                 createdAt: new Date()
             });
         }

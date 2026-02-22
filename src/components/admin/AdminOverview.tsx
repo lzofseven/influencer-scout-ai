@@ -12,17 +12,17 @@ const AdminOverview: React.FC = () => {
             // Conta usuários, créditos e historico
             const usersSnap = await getDocs(collection(db, 'users'));
             let totalCredits = 0;
-            let activeTierCount = 0; // Ex: Pro/Scale assinantes pagantes
+            let activeTierCount = 0;
 
             usersSnap.forEach(doc => {
                 const data = doc.data();
                 if (data.credits) totalCredits += data.credits;
-                if (data.tier && data.tier !== 'free') activeTierCount++;
+                // Todos os usuários agora são considerados no tier Starter por padrão
+                activeTierCount++;
             });
 
-            // O MRR é figurativo, pode ser derivado de activeTierCount * valor_do_plano
-            // Mas por enquanto somaremos tudo.
-            const estimatedMRR = activeTierCount * 147; // R$147/mes por exemplo
+            // O MRR é figurativo, baseado na contagem de usuários Starter
+            const estimatedMRR = activeTierCount * 147;
 
             // Busca histórico global (buscas realizadas)
             const historySnap = await getDocs(collection(db, 'history'));
@@ -35,9 +35,7 @@ const AdminOverview: React.FC = () => {
                 credits: totalCredits
             });
 
-            // Atividade Recente (ex: join de usuários e buscas)
-            // Para simplicidade, usamos logs recentes do history ou users se tivermos timestamps.
-            // Aqui pegaremos os ultimos usuários e buscas reais.
+            // Atividade Recente
             const recentHistoryQ = query(collection(db, 'history'), orderBy('timestamp', 'desc'), limit(5));
             const rhSnap = await getDocs(recentHistoryQ);
 
@@ -45,7 +43,6 @@ const AdminOverview: React.FC = () => {
             rhSnap.forEach(doc => {
                 activities.push({ id: doc.id, type: 'search', data: doc.data(), time: doc.data().timestamp?.toDate?.() || new Date() });
             });
-            // O ideal seria pegar um collection combinado de 'logs' ou 'activities', mas mesclaremos aqui se necessário.
 
             setRecentActivity(activities);
         };

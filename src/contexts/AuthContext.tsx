@@ -20,7 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [credits, setCredits] = useState<number>(0);
-    const [tier, setTier] = useState<string>('free'); // 'free', 'Starter', 'Scale'
+    const [tier, setTier] = useState<string>('Starter'); // 'Starter', 'Scale'
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
 
@@ -38,15 +38,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 setCredits(data.credits || 0);
-                setTier(data.tier || 'free');
+                const rawTier = data.tier || 'Starter';
+                setTier(rawTier.toLowerCase() === 'free' ? 'Starter' : rawTier);
                 // Atualiza online status e profile info
                 await setDoc(docRef, baseData, { merge: true });
             } else {
                 // Novo usuário ganha 5 créditos brinde na primeira vez que loga
-                const newData = { ...baseData, credits: 5, tier: 'free', createdAt: new Date() };
-                await setDoc(docRef, newData);
+                const newData = { ...baseData, credits: 5, tier: 'Starter', createdAt: new Date() };
+                await setDoc(userRef, newData);
                 setCredits(5);
-                setTier('free');
+                setTier('Starter');
             }
         } catch (error) {
             console.error("Erro ao buscar créditos", error);

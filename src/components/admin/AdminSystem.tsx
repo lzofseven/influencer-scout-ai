@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Activity, Cpu, HardDrive, Wifi } from 'lucide-react';
 

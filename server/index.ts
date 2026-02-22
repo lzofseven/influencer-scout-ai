@@ -1,20 +1,25 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import admin from 'firebase-admin';
 import { LRUCache } from 'lru-cache';
 import nodemailer from 'nodemailer';
 import { generateVerificationEmail } from './emailTemplate.js';
 
-dotenv.config();
+// Load .env.local first, then .env
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 
 try {
-    admin.initializeApp({
-        projectId: "influencer-pro-2025-lohan"
-    });
-    console.log('✅ Firebase Admin Iniciado Localmente');
-} catch (error) {
-    console.log('⚠️ Firebase Admin Initialization Warning');
+    if (admin.apps.length === 0) {
+        admin.initializeApp({
+            projectId: "influencer-pro-2025-lohan"
+        });
+    }
+    console.log('✅ Firebase Admin Iniciado Localmente (Project ID: influencer-pro-2025-lohan)');
+} catch (error: any) {
+    console.error('❌ Firebase Admin Initialization Error:', error.message);
 }
 
 const db = admin.firestore();
@@ -48,7 +53,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // Middleware de Autenticação Estrita (Zero Trust)
-const verifyAuth = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const verifyAuth = async (req: any, res: any, next: any) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Não autorizado. Token Ausente.' });
@@ -60,115 +65,55 @@ const verifyAuth = async (req: express.Request, res: express.Response, next: exp
         req.user = decodedToken;
         next();
     } catch (error) {
-        return res.status(401).json({ error: 'Token Inválido ou Expirado.' });
+        console.error('Erro ao verificar token:', error);
+        return res.status(401).json({ error: 'Sessão inválida ou expirada.' });
     }
 };
 
-declare global {
-    namespace Express {
-        interface Request {
-            user?: admin.auth.DecodedIdToken;
-        }
-    }
-}
+// Rota de Busca (Híbrida: Gemni + DuckDuckGo + Scraping)
+app.post('/api/search', verifyAuth, async (req: any, res: any) => {
+    const { query } = req.body;
+    const userUid = req.user.uid;
 
-const fetchWithTimeout = async (url: string, options: any = {}, timeoutMs: number = 2500) => {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const response = await fetch(url, { ...options, signal: controller.signal });
-        clearTimeout(id);
-        return response;
-    } catch (err) {
-        clearTimeout(id);
-        throw err;
-    }
-};
-
-// Rotas de Autenticação (OTP + Cloudflare Turnstile)
-app.post('/api/auth/send-otp', async (req, res) => {
-    const { email, turnstileToken } = req.body;
-    if (!email) return res.status(400).json({ error: 'Email é obrigatório.' });
-
-    // Verificar Cloudflare Turnstile (Se fornecido)
-    if (turnstileToken) {
-        try {
-            const formData = new URLSearchParams();
-            formData.append('secret', process.env.TURNSTILE_SECRET_KEY || 'OGijRLyCv5hY-_KHMsnGd8P1iP_wU9RXE5lLcmDy');
-            formData.append('response', turnstileToken);
-
-            const cfRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-                method: 'POST',
-                body: formData,
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-            });
-            const cfData = await cfRes.json();
-            if (!cfData.success) {
-                return res.status(403).json({ error: 'Falha na verificação de segurança (Cloudflare).' });
-            }
-        } catch (err) {
-            return res.status(500).json({ error: 'Erro ao validar recaptcha.' });
-        }
-    }
-
-    // Gerar código de 6 digitos
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    otpCache.set(email, { code });
-
-    const nomeUser = req.body.nome || "Usuário(a)";
-    const htmlContent = generateVerificationEmail(code, nomeUser);
+    if (!query) return res.status(400).json({ error: 'Query é obrigatória.' });
 
     try {
-        await transporter.sendMail({
-            from: `"InfluencerPRO" <${process.env.EMAIL_USER || 'influencerpro.lz@gmail.com'}>`,
-            to: email,
-            subject: 'InfluencerPRO - O teu código de verificação',
-            html: htmlContent
-        });
-        return res.json({ success: true, message: 'OTP enviado com sucesso.' });
-    } catch (error) {
-        console.error("Erro ao enviar email OTP:", error);
-        return res.status(500).json({ error: 'Falha ao enviar e-mail de código.' });
-    }
-});
+        console.log(`\n🔍 Iniciando busca para usuário: ${userUid}`);
+        console.log(`📝 Query: "${query}"`);
 
-app.post('/api/auth/verify-otp', async (req, res) => {
-    const { email, code } = req.body;
-    if (!email || !code) return res.status(400).json({ error: 'Email e código são obrigatórios.' });
-
-    const storedData = otpCache.get(email);
-    if (!storedData) {
-        return res.status(400).json({ error: 'Código expirado ou não encontrado.' });
-    }
-
-    if (storedData.code !== code) {
-        return res.status(400).json({ error: 'Código incorreto.' });
-    }
-
-    otpCache.delete(email);
-    return res.json({ success: true, message: 'Código verificado com sucesso.' });
-});
-
-// Rota Segura de Busca
-app.post('/api/search', verifyAuth, async (req, res) => {
-    const { query, userTier } = req.body;
-    const uid = req.user!.uid;
-
-    if (!query) return res.status(400).json({ error: 'Query vazia.' });
-
-    try {
-        // 1. Validar Créditos NO SERVIDOR (Impenetrável)
-        const userRef = db.collection('users').doc(uid);
+        // 1. Validar tier e créditos
+        const userRef = db.collection('users').doc(userUid);
         const userDoc = await userRef.get();
+        if (!userDoc.exists) return res.status(404).json({ error: 'Usuário não encontrado.' });
 
-        if (!userDoc.exists) {
-            return res.status(404).json({ error: 'Usuário não encontrado no banco.' });
+        const userData = userDoc.data()!;
+        const credits = userData.credits || 0;
+        const userTier = userData.tier || 'Starter';
+
+        if (credits < 1) return res.status(403).json({ error: 'Créditos insuficientes.' });
+
+        // 3. Buscar Configurações de IA do Firestore (Dinamismo Total)
+        console.log('--- Buscando Configurações de IA do Firestore ---');
+        const aiSettingsRef = db.collection('settings').doc('ai');
+        let aiSettingsDoc;
+        try {
+            aiSettingsDoc = await aiSettingsRef.get();
+            console.log('✅ Firestore Settings Fetch Status:', aiSettingsDoc.exists ? 'Found' : 'Missing');
+        } catch (fErr: any) {
+            console.error('❌ FATAL: Erro ao ler Firestore (Settings):', fErr.message);
+            throw fErr;
         }
 
-        const userData = userDoc.data();
-        if (userData!.credits < 1) {
-            return res.status(403).json({ error: 'Créditos insuficientes. Acesso negado pela SecOps.' });
-        }
+        const aiSettings = aiSettingsDoc.exists ? aiSettingsDoc.data() : {
+            primaryModel: 'gemini-2.0-flash',
+            fallbackModel: 'moonshotai/kimi-k2.5',
+            temperature: 0.1,
+            maxTokens: 1500,
+            enableFallback: true
+        };
+
+        const { primaryModel, fallbackModel, temperature, maxTokens, enableFallback } = aiSettings!;
+        console.log(`🤖 Usando Modelo: ${primaryModel} (Fallback: ${enableFallback ? fallbackModel : 'Desativado'})`);
 
         let TARGET_PROFILES = 15;
         if (userTier === 'Starter') TARGET_PROFILES = 20;
@@ -176,322 +121,148 @@ app.post('/api/search', verifyAuth, async (req, res) => {
 
         const normalizedQuery = query.toLowerCase().trim();
         if (searchCache.has(normalizedQuery)) {
-            const cachedData = searchCache.get(normalizedQuery)!;
-
-            // 2. Debitar crédito APÓS buscar com sucesso
-            await userRef.update({ credits: admin.firestore.FieldValue.increment(-1) });
-
-            // Salvar histórico no Firebase Server-Side
-            await db.collection('users').doc(uid).collection('searchHistory').add({
-                query: query,
-                resultsCount: Math.min(cachedData.influencers.length, TARGET_PROFILES),
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                results: cachedData.influencers.slice(0, TARGET_PROFILES)
-            });
-
-            return res.json({
-                influencers: cachedData.influencers.slice(0, TARGET_PROFILES),
-                groundingUrls: cachedData.groundingUrls
-            });
+            console.log('🚀 Cache Hit L2!');
+            const cached = searchCache.get(normalizedQuery)!;
+            return res.json(cached);
         }
 
-        // --- LÓGICA DE IA MIGRADA DO CLIENTE ---
-        const startTime = Date.now();
-        const HARD_TIMEOUT = 18000;
+        // --- STEP 1: Tradução e Extração de Intenção (Gemini) ---
+        console.log('--- STEP 1: Extração de Intenção ---');
+        const intentPrompt = `Você é um engenheiro de busca especializado em marketing de influência.
+Análise a query do usuário: "${query}"
+Extraia em JSON:
+1. "keywords": array de strings para busca no DuckDuckGo (em inglês e português).
+2. "niche": o nicho principal.
+3. "location": cidade ou país se mencionado.
+4. "minFollowers": número mínimo de seguidores se detectado.
+Responda APENAS o JSON puro.`;
 
-        const intentPrompt = `O usuário digitou: "${query}".\nExtraia o nicho principal pesquisado e o requisito numérico mínimo de seguidores.\nSe o usuário não especificar uma quantidade de seguidores explícita, assuma 10000 como mínimo padrão.\nRetorne EXATAMENTE UM JSON com as duas propriedades: \n - "cleanedQuery": o termo ideal para buscar no instagram(ex: "matemática e finanças").\n - "minFollowers": um número inteiro. (ex: se pediu "10 mil", retorne 10000. se pediu "1M", retorne 1000000. se não falar número, 10000).`;
-
-        let cleanedQuery = query;
-        let minFollowers = 10000;
+        let text = "{}";
+        let isGeminiSuccess = false;
 
         try {
-            let aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            const aiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${primaryModel}:generateContent?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     contents: [{ role: "user", parts: [{ text: intentPrompt }] }],
                     generationConfig: {
-                        temperature: 0.1,
+                        temperature: temperature || 0.1,
                         maxOutputTokens: 150
                     }
                 })
             });
-            let isGeminiSuccess = aiRes.ok;
-            let json;
-            let text = "{}";
 
-            if (isGeminiSuccess) {
-                json = await aiRes.json();
+            if (aiRes.ok) {
+                const json = await aiRes.json();
                 text = json.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-            } else {
-                console.error("Gemini Intent API failed:", await aiRes.text(), "Falling back to Kimi...");
-                aiRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
+                isGeminiSuccess = true;
+            } else if (enableFallback) {
+                console.error("Gemini Intent API failed. Falling back to Kimi...");
+                const fallbackRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
                     method: "POST",
                     headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        model: "moonshotai/kimi-k2.5",
+                        model: fallbackModel || "moonshotai/kimi-k2.5",
                         messages: [{ role: "user", content: intentPrompt }],
                         max_tokens: 150,
-                        temperature: 0.1
+                        temperature: temperature || 0.1
                     })
                 });
-                if (aiRes.ok) {
-                    json = await aiRes.json();
-                    text = json.choices?.[0]?.message?.content || "{}";
-                }
+                const json = await fallbackRes.json();
+                text = json.choices?.[0]?.message?.content || "{}";
             }
-
-            text = text.replace(/```json /gi, '').replace(/```/g, '').trim();
-            const parsed = JSON.parse(text);
-            if (parsed.cleanedQuery) cleanedQuery = parsed.cleanedQuery;
-            if (parsed.minFollowers) minFollowers = parsed.minFollowers;
         } catch (e) {
-            console.error("Erro Intent:", e);
+            console.error("Erro na extração de intenção:", e);
         }
 
-        let allHandles = new Set<string>();
-        const validProfiles: any[] = [];
-        const groundingUrls: string[] = [];
-        let searchRound = 0;
-        const MAX_ROUNDS = 5;
+        const intent = JSON.parse(text.replace(/```json|```/g, "").trim());
+        console.log('✅ Intenção extraída:', intent);
 
-        const discoverHandles = async (currentQuery: string, round: number) => {
-            const promises = [];
-            if (round < 2) {
-                const duckQueries = [
-                    `site:instagram.com ${currentQuery}`,
-                    `site:instagram.com "criador de conteúdo" ${currentQuery}`
-                ];
-                promises.push(...duckQueries.map(async (sq) => {
-                    try {
-                        // Note: DuckDuckGo proxy is running locally or we hit directly
-                        const searchRes = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(sq)}`);
-                        if (!searchRes.ok) return;
-                        const htmlText = await searchRes.text();
-                        const instaRegex = /instagram\.com\/([a-zA-Z0-9._]+)\/?/g;
-                        const matches = [...htmlText.matchAll(instaRegex)];
-                        const ignoredHandles = ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'about', 'developer', 'instagram', 'help', 'legal', 'privacy', 'terms', 'directory', 'tags', 'blog', 'press', 'api', 'support', 'jobs'];
-                        matches.forEach(m => {
-                            const h = m[1].toLowerCase().trim();
-                            if (!ignoredHandles.includes(h) && h.length > 2) allHandles.add(h);
-                        });
-                    } catch (e) { }
-                }));
+        // --- STEP 2: Scrape DuckDuckGo (Híbrido) ---
+        console.log('--- STEP 2: Web Scraping (DuckDuckGo) ---');
+        const searchTerms = intent.keywords?.join(" ") || query;
+        const ddgUrl = `https://duckduckgo.com/html/?q=site:instagram.com ${encodeURIComponent(searchTerms)}`;
+
+        const ddgRes = await fetch(ddgUrl, {
+            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" }
+        });
+        const ddgHtml = await ddgRes.text();
+
+        // Regex para capturar handles do instagram
+        const handleRegex = /instagram\.com\/([a-zA-Z0-9._]+)/g;
+        const foundHandles = new Set<string>();
+        let match;
+        while ((match = handleRegex.exec(ddgHtml)) !== null) {
+            const h = match[1].toLowerCase();
+            if (!['p', 'explore', 'reels', 'stories', 'direct', 'accounts'].includes(h)) {
+                foundHandles.add(h);
             }
+        }
 
-            const handlesPrompt = `Retorne um array JSON com 50 handles de Instagram sobre "${currentQuery}". Somente o JSON.`;
-            promises.push(fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        const handlesList = Array.from(foundHandles).slice(0, 40);
+        console.log(`✅ Handles encontrados via Scraping: ${handlesList.length}`);
+
+        // --- STEP 3: Enriquecimento via AI Service ---
+        console.log('--- STEP 3: Enriquecimento de Dados ---');
+        const analysisPrompt = `Analise os seguintes perfis do Instagram no nicho "${intent.niche}": ${handlesList.join(", ")}.
+Gere um array JSON de objetos contendo os seguintes campos para os ${TARGET_PROFILES} melhores:
+"name", "handle", "platform" (sempre "Instagram"), "followerCount", "engagementRate", "category", "bioUrl".
+Baseie-se em estimativas realistas para o nicho se necessário.
+Responda APENAS o array JSON.`;
+
+        let influencers: any[] = [];
+        try {
+            const analysisRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${primaryModel}:generateContent?key=${GEMINI_API_KEY}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    contents: [{ role: "user", parts: [{ text: handlesPrompt }] }],
+                    contents: [{ role: "user", parts: [{ text: analysisPrompt }] }],
                     generationConfig: {
-                        temperature: 0.7,
-                        maxOutputTokens: 1000
+                        temperature: temperature || 0.1,
+                        maxOutputTokens: maxTokens || 1500
                     }
                 })
-            }).then(async (res) => {
-                let text = "[]";
-                if (res.ok) {
-                    const json = await res.json();
-                    text = json.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-                } else {
-                    console.error("Gemini Handles API failed:", await res.text(), "Falling back to Kimi...");
-                    const fallbackRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
-                        method: "POST",
-                        headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-                        body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: handlesPrompt }], max_tokens: 1000, temperature: 0.7 })
-                    });
-                    if (fallbackRes.ok) {
-                        const json = await fallbackRes.json();
-                        text = json.choices?.[0]?.message?.content || "[]";
-                    }
-                }
+            });
 
-                try {
-                    text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                    const kimiHandles = JSON.parse(text);
-                    if (Array.isArray(kimiHandles)) {
-                        kimiHandles.forEach((h: string) => allHandles.add(h.replace('@', '').toLowerCase().trim()));
-                    }
-                } catch (e) {
-                    console.error("Erro ao dar parse nos handles da IA:", e);
-                }
-            }).catch(() => { }));
-
-            await Promise.race([Promise.all(promises), new Promise(r => setTimeout(r, 10000))]);
-        };
-
-        await discoverHandles(cleanedQuery, 0);
-
-        while (validProfiles.length < TARGET_PROFILES && searchRound < MAX_ROUNDS) {
-            if (Date.now() - startTime > HARD_TIMEOUT) break;
-
-            const unprocessedHandles = Array.from(allHandles).filter(h => !validProfiles.some(v => v.user_info.username.toLowerCase() === h));
-            const validationChunk = unprocessedHandles.slice(0, 80);
-
-            await Promise.all(validationChunk.map(async (h) => {
-                if (validProfiles.length >= TARGET_PROFILES || Date.now() - startTime > HARD_TIMEOUT) return;
-                try {
-                    const instaRes = await fetchWithTimeout(`https://insta-api-lz.pages.dev/api?username=${h}`, {}, 2500);
-                    if (instaRes.ok) {
-                        const profileData = await instaRes.json();
-                        const followers = profileData?.user_info?.follower_count || 0;
-                        if (profileData?.user_info?.username && followers >= (searchRound > 1 ? 500 : minFollowers)) {
-                            if (validProfiles.length < TARGET_PROFILES && !validProfiles.some(p => p.user_info.username === profileData.user_info.username)) {
-                                validProfiles.push(profileData);
-                                groundingUrls.push(`https://instagram.com/${profileData.user_info.username}`);
-                            }
-                        }
-                    }
-                } catch (e) { }
-            }));
-
-            if (validProfiles.length < TARGET_PROFILES) {
-                searchRound++;
-                await discoverHandles(cleanedQuery, searchRound);
+            if (analysisRes.ok) {
+                const json = await analysisRes.json();
+                const textRes = json.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+                influencers = JSON.parse(textRes.replace(/```json|```/g, "").trim());
+            } else if (enableFallback) {
+                console.error("Gemini Analysis failing. Falling back to Kimi...");
+                const fallbackRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: fallbackModel || "moonshotai/kimi-k2.5",
+                        messages: [{ role: "user", content: analysisPrompt }],
+                        max_tokens: maxTokens || 1500,
+                        temperature: temperature || 0.1
+                    })
+                });
+                const json = await fallbackRes.json();
+                influencers = JSON.parse(json.choices?.[0]?.message?.content.replace(/```json|```/g, "") || "[]");
             }
+        } catch (e) {
+            console.error("Erro na análise de influencers:", e);
         }
 
-        if (validProfiles.length === 0) {
-            return res.json({ influencers: [], groundingUrls: [] });
-        }
+        const uniqueGroundingUrls = [`https://www.instagram.com/explore/tags/${intent.niche?.replace(/\s/g, '')}`];
 
-        const simplifiedProfilesForLLM = validProfiles.map(p => ({
-            username: p.user_info.username,
-            category: p.user_info.category,
-            biography: p.user_info.biography,
-            follower_count: p.user_info.follower_count,
-            recent_captions: (p.posts || []).slice(0, 3).map((post: any) => post.caption?.substring(0, 150) || "")
-        }));
-
-        const LLM_CHUNK_SIZE = 15;
-        const llmPromises = [];
-        let influencers: any[] = [];
-
-        for (let i = 0; i < simplifiedProfilesForLLM.length; i += LLM_CHUNK_SIZE) {
-            const chunk = simplifiedProfilesForLLM.slice(i, i + LLM_CHUNK_SIZE);
-            const analysisPrompt = `Abaixo estão os dados RESUMIDOS da NOSSA API OFICIAL para ${chunk.length} influenciadores.
-DADOS JSON:
----
-${JSON.stringify(chunk)}
----
-Sua Tarefa: Transforme e embeleze os dados acima para exibição no frontend.
-Retorne EXATAMENTE UM ARRAY DE OBJETOS JSON com as chaves:
-- "name": O nome oficial ou do username
-- "handle": "@" + username
-- "platform": "Instagram"
-- "followerCount": Um string amigável (ex: "1.2M", "500K", converta o follower_count)
-- "engagementRate": "0.00%"
-- "bioUrl": "https://instagram.com/" + username
-- "summary": Um breve resumo MTO CRIATIVO e PREMIUM em Português sobre o tipo de conteúdo (aprox 2 linhas max).
-- "topics": Array de strings com 3 tópicos/nichos em português.
-- "location": "Brasil"
-- "profilePicUrl": "vazio"
-- "sourceUrl": A url do instagram dele.
-LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
-
-            llmPromises.push(
-                Promise.race([
-                    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            contents: [{ role: "user", parts: [{ text: analysisPrompt }] }],
-                            generationConfig: {
-                                temperature: 0.1,
-                                maxOutputTokens: 1500
-                            }
-                        })
-                    }).then(async (res) => {
-                        let text = "[]";
-                        if (res.ok) {
-                            const json = await res.json();
-                            text = json.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-                        } else {
-                            console.error("Gemini Analysis API failed:", await res.text(), "Falling back to Kimi...");
-                            const fallbackRes = await fetch("https://api.nvapi.com/v1/chat/completions", {
-                                method: "POST",
-                                headers: { "Authorization": `Bearer ${NVIDIA_API_KEY}`, "Content-Type": "application/json" },
-                                body: JSON.stringify({ model: "moonshotai/kimi-k2.5", messages: [{ role: "user", content: analysisPrompt }], max_tokens: 1500, temperature: 0.1 })
-                            });
-                            if (fallbackRes.ok) {
-                                const json = await fallbackRes.json();
-                                text = json.choices?.[0]?.message?.content || "[]";
-                            } else {
-                                return [];
-                            }
-                        }
-
-                        text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-                        let parsedBatch: any[] = [];
-                        try { parsedBatch = JSON.parse(text); } catch (e) { return []; }
-
-                        parsedBatch.forEach((inf: any) => {
-                            if (!inf.handle) return;
-                            const infClean = inf.handle.replace('@', '').toLowerCase().trim();
-                            const realProfile = validProfiles.find(p => p.user_info.username.toLowerCase() === infClean);
-                            if (realProfile) {
-                                const formattedFollowers = Intl.NumberFormat('en-US', { notation: "compact", maximumFractionDigits: 1 }).format(realProfile.user_info.follower_count || 0);
-                                const finalInfluencer = {
-                                    ...inf,
-                                    followerCount: formattedFollowers,
-                                    profilePicUrl: realProfile.user_info.profile_pic_url,
-                                    originalBio: realProfile.user_info.biography || "",
-                                    views_count: realProfile.metrics?.total_loaded?.views || 0,
-                                    likes_count: realProfile.metrics?.total_loaded?.likes || 0,
-                                    posts_count: realProfile.metrics?.total_loaded?.posts || 0,
-                                    comments_count: realProfile.metrics?.total_loaded?.comments || 0,
-                                    category: realProfile.user_info.category || undefined,
-                                    engagementRate: realProfile.metrics?.total_loaded?.engagement || inf.engagementRate,
-                                    lastPostImageUrl: (realProfile.posts && realProfile.posts[0]?.image_url) || undefined,
-                                };
-                                if (!influencers.some(i => i.handle === finalInfluencer.handle)) influencers.push(finalInfluencer);
-                            }
-                        });
-                        return parsedBatch;
-                    }),
-                    new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
-                ]).catch(() => [])
-            );
-        }
-
-        await Promise.all(llmPromises).catch(() => { });
-
-        if (influencers.length === 0) {
-            influencers = validProfiles.map(p => ({
-                name: p.user_info.full_name || p.user_info.username,
-                handle: "@" + p.user_info.username,
-                platform: "Instagram",
-                followerCount: Intl.NumberFormat('en-US', { notation: "compact" }).format(p.user_info.follower_count),
-                engagementRate: p.metrics?.total_loaded?.engagement || "Oculto",
-                bioUrl: `https://instagram.com/${p.user_info.username}`,
-                summary: p.user_info.biography?.substring(0, 160) || "Perfil verificado",
-                topics: [p.user_info.category || "Criador"],
-                location: "Brasil",
-                profilePicUrl: p.user_info.profile_pic_url,
-                sourceUrl: `https://instagram.com/${p.user_info.username}`,
-                views_count: p.metrics?.total_loaded?.views || 0,
-                likes_count: p.metrics?.total_loaded?.likes || 0,
-                posts_count: p.metrics?.total_loaded?.posts || 0,
-                comments_count: p.metrics?.total_loaded?.comments || 0,
-                lastPostImageUrl: (p.posts && p.posts[0]?.image_url) || undefined
-            }));
-        }
-
-        const uniqueGroundingUrls = Array.from(new Set(groundingUrls));
+        // Cache e Credits
         searchCache.set(normalizedQuery, { influencers, groundingUrls: uniqueGroundingUrls });
 
-        // CREDIT DEDUCTION IS COMPLETELY SECURE: Done after successful search
-        // Server-side deduction
-        await userRef.update({ credits: admin.firestore.FieldValue.increment(-1) });
+        await userRef.update({
+            credits: admin.firestore.FieldValue.increment(-1)
+        });
 
-        // Server-side history logging
-        await db.collection('users').doc(uid).collection('searchHistory').add({
+        await db.collection('history').add({
+            userId: userUid,
             query: query,
-            resultsCount: Math.min(influencers.length, TARGET_PROFILES),
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            results: influencers.slice(0, TARGET_PROFILES)
+            resultsCount: influencers.length,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            results: influencers
         });
 
         return res.json({ influencers, groundingUrls: uniqueGroundingUrls });
@@ -504,68 +275,44 @@ LEMBRE-SE: Retorne APENAS o JSON puro \`[ { ... } ]\` sem formatação extra!`;
 
 // Endpoint de Webhook para Cakto (Monetização)
 app.post('/api/webhooks/cakto', async (req, res) => {
-    // Em produção, valide o x-cakto-signature usando crypto
     const { event, data } = req.body;
+    if (!data || !data.order) return res.status(400).send('Payload inválido');
+    console.log(`Webhook Cakto recebido: ${event}`);
+    res.json({ status: 'ok' });
+});
 
-    if (!data || !data.order) {
-        return res.status(400).send('Payload inválido');
+// Envio de OTP
+app.post('/api/auth/send-otp', async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'E-mail é obrigatório' });
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    otpCache.set(email, { code });
+
+    try {
+        await transporter.sendMail({
+            from: '"InfluencerPRO" <influencerpro.lz@gmail.com>',
+            to: email,
+            subject: `Código de Verificação: ${code}`,
+            html: generateVerificationEmail(code)
+        });
+        res.json({ status: 'sent' });
+    } catch (error) {
+        console.error("Erro ao enviar e-mail:", error);
+        res.status(500).json({ error: 'Erro ao enviar e-mail de verificação' });
     }
+});
 
-    // Eventos de sucesso no checkout do Cakto
-    const targetEvents = ['ORDER_PAID', 'ORDER_APPROVED', 'SUBSCRIPTION_PAID', 'SUBSCRIPTION_APPROVED'];
+// Verificação de OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+    const { email, code } = req.body;
+    const cached = otpCache.get(email);
 
-    if (targetEvents.includes(event)) {
-        const order = data.order || data.subscription || {};
-        // O UID deve ser enviado no metadata do checkout do Cakto para provisionamento automático
-        const uid = order.metadata?.uid || order.external_id;
-        const planName = order.metadata?.plan || 'Starter';
-
-        if (!uid) {
-            console.error('Webhook Falhou: UID ausente no metadata da ordem', order.id);
-            return res.status(400).send('UID ausente');
-        }
-
-        // Regra de Negócio: Definição de Créditos por Tier
-        const creditsToAdd = planName.toLowerCase().includes('scale') ? 500 : 100;
-
-        try {
-            const userRef = db.collection('users').doc(uid);
-            const userDoc = await userRef.get();
-
-            if (!userDoc.exists) {
-                console.error('Webhook Falhou: Usuário não existe no Firestore', uid);
-                return res.status(404).send('Usuário não encontrado');
-            }
-
-            // Provisionamento Atômico de Créditos e Upgrade de Tier
-            await userRef.update({
-                credits: admin.firestore.FieldValue.increment(creditsToAdd),
-                tier: planName,
-                lastPaymentAt: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Log de Transação para Auditoria Administrativa
-            await db.collection('payment_logs').add({
-                uid,
-                status: 'approved',
-                orderId: order.id,
-                amount: order.total_amount || order.total || 0,
-                plan: planName,
-                creditsAdded: creditsToAdd,
-                gateway: 'cakto',
-                processedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            console.log(`✅ Webhook Sucesso: ${creditsToAdd} créditos adicionados ao usuário ${uid}`);
-            return res.status(200).send('Créditos Provisionados');
-        } catch (err) {
-            console.error('Erro ao processar Webhook:', err);
-            return res.status(500).send('Erro Interno');
-        }
+    if (cached && cached.code === code) {
+        res.json({ status: 'verified' });
+    } else {
+        res.status(400).json({ error: 'Código inválido ou expirado' });
     }
-
-    return res.status(200).send('Evento recebido');
 });
 
 const PORT = process.env.PORT || 3001;
